@@ -28,6 +28,8 @@
   #speedo { position: absolute; right: 16px; bottom: 16px; padding: 8px 14px; text-align: right; display: none; }
   #speedo .mph { font-size: 30px; font-weight: 800; }
   #speedo .unit { color: #b9c2d4; font-size: 11px; letter-spacing: 0.14em; }
+  #damagebar { width: 130px; height: 8px; background: rgba(255,255,255,0.18); border-radius: 5px; overflow: hidden; margin: 6px 0 2px auto; }
+  #damagefill { height: 100%; width: 0%; background: linear-gradient(90deg, #ffb03d, #ff4040); }
   #toast { position: absolute; bottom: 240px; left: 50%; transform: translateX(-50%);
     padding: 10px 20px; font-size: 17px; font-weight: 600; opacity: 0; transition: opacity 0.25s; white-space: nowrap; }
   #crosshair { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px;
@@ -75,7 +77,7 @@
   <div id="wanted" class="panel"><span id="stars"></span></div>
   <div id="objective" class="panel"><div class="mname" id="missionName">FREE ROAM</div><div class="mtext" id="missionText">Find the yellow marker to start a job.</div></div>
   <canvas id="minimap" width="210" height="210"></canvas>
-  <div id="speedo" class="panel"><div class="mph"><span id="mph">0</span></div><div class="unit">MPH &middot; <span id="gear">D</span></div></div>
+  <div id="speedo" class="panel"><div class="mph"><span id="mph">0</span></div><div class="unit">MPH &middot; <span id="gear">D</span> &middot; <span id="carKind">SEDAN</span></div><div id="damagebar"><div id="damagefill"></div></div><div class="unit">DAMAGE <span id="carDamage">0%</span></div></div>
   <div id="toast" class="panel"></div>
   <div id="crosshair"></div>
   <div id="prompt" class="panel"></div>
@@ -89,7 +91,7 @@
     Solmar Bay — a sun-soaked port city of boardwalks, glass towers and bad decisions.
     Her brother <b>Dario</b> owes $40,000 to the Harlow crew, and the only way out is
     through the city's jobs: drive, deliver, steal, fight — and stay ahead of the
-    Solmar Bay Police Department. Six jobs. One debt. No way back but forward.</p>
+    Solmar Bay Police Department. Ten jobs. One debt. No way back but forward.</p>
     <div class="controls">
       <div><b>W A S D</b> — move / drive</div>
       <div><b>Mouse drag</b> — look around</div>
