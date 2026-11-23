@@ -1,409 +1,457 @@
-// The story: six jobs that pay off Dario's $40,000 debt to the Harlow crew.
-// Each mission is a list of steps — go somewhere, get in a car, fight, deliver —
-// and the manager walks the player through them, one objective at a time.
-
-import { MISSIONS } from './config.js';
-
-const DARIO = 'Dario';
-const LENA = 'Lena';
-const HARLOW = 'Mr. Harlow';
-
-const DEFS = [
-  {
-    id: 1,
-    name: 'First Fare',
-    reward: 800,
-    intro: [
-      { who: DARIO, text: 'Vex. You owe me one, sis — the taxi at the depot needs a driver and the fare pays cash. Get in it.' },
-      { who: LENA, text: 'One fare. Then we talk about the forty grand, Dario.' },
-    ],
-    steps: [
-      { type: 'getIn', kind: 'taxi', x: -150, z: 150, label: 'Get in the yellow taxi at the depot' },
-      { type: 'goto', x: 0, z: 232, label: 'Drive the fare to the beach boardwalk', radius: 6 },
-    ],
-    outro: [
-      { who: DARIO, text: 'Eight hundred. See? The city pays if you move fast enough.' },
-    ],
-  },
-  {
-    id: 2,
-    name: 'The Package',
-    reward: 1200,
-    intro: [
-      { who: DARIO, text: 'A package is waiting in Palm Park. Pick it up, walk it to the pier. And Vex — the cops got tipped off. Walk fast.' },
-    ],
-    steps: [
-      { type: 'goto', x: -120, z: -120, label: 'Pick up the package in Palm Park', radius: 5 },
-      { type: 'goto', x: 0, z: 292, label: 'Deliver the package to the end of the pier', radius: 5, wantedOnArrive: 1 },
-    ],
-    outro: [
-      { who: LENA, text: 'Delivered. Twelve hundred closer to free.' },
-    ],
-  },
-  {
-    id: 3,
-    name: 'The Getaway',
-    reward: 2000,
-    intro: [
-      { who: DARIO, text: 'Harlow left a cherry-red coupe on Marlin Street. Take it. The hideout is up northwest — and the whole department will be on you.' },
-    ],
-    steps: [
-      { type: 'steal', kind: 'coupe', x: 90, z: -90, label: 'Steal the red coupe on Marlin Street', wantedOnSteal: 2 },
-      { type: 'goto', x: -180, z: -180, label: 'Reach the hideout in the northwest', radius: 8, needCar: true },
-    ],
-    outro: [
-      { who: DARIO, text: 'Clean. Harlow is going to love that car almost as much as he loves your debt.' },
-    ],
-  },
-  {
-    id: 4,
-    name: 'Dockside Deal',
-    reward: 3500,
-    intro: [
-      { who: HARLOW, text: 'Miss Marlowe. Three of my former associates are waiting at the docks with something of mine. Take it back. All of it.' },
-      { who: LENA, text: 'Three of them. One of me. Fine.' },
-    ],
-    steps: [
-      { type: 'goto', x: 0, z: 280, label: 'Go to the docks at the end of the pier', radius: 8 },
-      { type: 'combat', x: 0, z: 292, count: 3, label: 'Deal with the three Harlow men' },
-      { type: 'goto', x: 0, z: 292, label: 'Collect the cash bag', radius: 5 },
-    ],
-    outro: [
-      { who: HARLOW, text: 'Efficient. I almost like you, Marlowe.' },
-    ],
-  },
-  {
-    id: 5,
-    name: 'Night Shift',
-    reward: 4500,
-    intro: [
-      { who: DARIO, text: 'Five drops, one night, no questions. The timer starts when you hit the first checkpoint. Drive like the rent is due — it is.' },
-    ],
-    steps: [
-      {
-        type: 'checkpoints',
-        points: [
-          { x: -150, z: -150 }, { x: 150, z: -150 }, { x: 150, z: 150 },
-          { x: -150, z: 150 }, { x: 30, z: 30 },
-        ],
-        timeLimit: 150,
-        label: 'Hit all 5 checkpoints before the timer runs out',
-      },
-    ],
-    outro: [
-      { who: LENA, text: 'Five drops, zero questions. The night shift pays.' },
-    ],
-  },
-  {
-    id: 6,
-    name: 'The Big Score',
-    reward: 30000,
-    intro: [
-      { who: HARLOW, text: 'One last job, Marlowe. An armoured van parks by my tower every morning. Bring it to the garage in the northeast and your brother walks free.' },
-      { who: LENA, text: 'Then this is the last one. For Dario. For me.' },
-    ],
-    steps: [
-      { type: 'steal', kind: 'van', x: 30, z: 30, label: 'Steal the armoured van by Harlow Tower', wantedOnSteal: 3 },
-      { type: 'goto', x: 180, z: -180, label: 'Deliver the van to the garage — lose the cops if you can', radius: 8, needCar: true },
-    ],
-    outro: [
-      { who: HARLOW, text: 'The debt is paid, Marlowe. Dario is free. Solmar Bay is yours now — spend it well.' },
-      { who: LENA, text: 'Forty grand. Done. The bay never looked this good.' },
-    ],
-  },
-  {
-    id: 7,
-    name: 'Marina Ambush',
-    reward: 6000,
-    intro: [
-      { who: HARLOW, text: 'The debt is paid, Marlowe — but the bay still owes me. Four of my old rivals are waiting at the south marina with a ledger of names. Bring it to me.' },
-      { who: LENA, text: 'Four of them, one ledger, and a long walk home. Same as always.' },
-    ],
-    steps: [
-      { type: 'goto', x: -150, z: 210, label: 'Go to the south marina', radius: 8 },
-      { type: 'combat', x: -150, z: 210, count: 4, label: 'Deal with the four rivals at the marina' },
-      { type: 'goto', x: -150, z: 210, label: 'Pick up the ledger', radius: 5 },
-      { type: 'goto', x: 150, z: -150, label: 'Deliver the ledger to the northeast corner', radius: 8 },
-    ],
-    outro: [
-      { who: HARLOW, text: 'The ledger. You are not just free, Marlowe — you are useful.' },
-    ],
-  },
-  {
-    id: 8,
-    name: 'The Last Lap',
-    reward: 8000,
-    intro: [
-      { who: DARIO, text: 'One last run to celebrate, sis. Six checkpoints, all over the bay, before the clock dies. Grab any car you like — and make it look easy.' },
-      { who: LENA, text: 'Six checkpoints. One bay. Watch me.' },
-    ],
-    steps: [
-      {
-        type: 'checkpoints',
-        points: [
-          { x: -150, z: -150 }, { x: 150, z: -150 }, { x: 150, z: 150 },
-          { x: -150, z: 150 }, { x: 90, z: -90 }, { x: -90, z: 90 },
-        ],
-        timeLimit: 210,
-        label: 'Hit all 6 checkpoints before the timer runs out',
-      },
-    ],
-    outro: [
-      { who: DARIO, text: 'Six for six. The bay is yours, Vex — every street, every shortcut.' },
-      { who: LENA, text: 'Forty grand, two extra jobs, one city. Done.' },
-    ],
-  },
-  {
-    id: 9,
-    name: 'Dead Drops',
-    reward: 7000,
-    intro: [
-      { who: HARLOW, text: 'Four dead drops, scattered across the bay, each one mine. Collect them all, bring them to the pier, and do not get curious about what is inside.' },
-      { who: LENA, text: 'Four stops, one pier. I can do curious later.' },
-    ],
-    steps: [
-      {
-        type: 'collect',
-        points: [
-          { x: -150, z: -150 }, { x: 150, z: 150 }, { x: 90, z: 90 }, { x: -90, z: -90 },
-        ],
-        label: 'Pick up the 4 dead drops around the bay',
-      },
-      { type: 'goto', x: 0, z: 292, label: 'Deliver the drops to the end of the pier', radius: 5 },
-    ],
-    outro: [
-      { who: HARLOW, text: 'All four. You collect almost as well as you drive, Marlowe.' },
-    ],
-  },
-  {
-    id: 10,
-    name: "Harlow's Farewell",
-    reward: 12000,
-    intro: [
-      { who: HARLOW, text: 'One last run, Marlowe — my farewell gift. A sports car is parked in the southwest. Take it, run six checkpoints, and make it look easy. The whole department will be watching.' },
-      { who: LENA, text: 'Six checkpoints, one sports car, the whole bay watching. Let us go.' },
-    ],
-    steps: [
-      { type: 'steal', kind: 'sports', x: -150, z: 150, label: 'Steal the sports car in the southwest', wantedOnSteal: 3 },
-      {
-        type: 'checkpoints',
-        points: [
-          { x: -150, z: -150 }, { x: 150, z: -150 }, { x: 150, z: 150 },
-          { x: -150, z: 150 }, { x: 90, z: -90 }, { x: -90, z: 90 },
-        ],
-        timeLimit: 240,
-        label: 'Hit all 6 checkpoints before the timer runs out',
-      },
-    ],
-    outro: [
-      { who: HARLOW, text: 'Ten jobs. You paid your brother out and then some, Marlowe. Solmar Bay remembers drivers like you.' },
-      { who: LENA, text: 'Ten for ten. The bay is mine now — every street, every shortcut.' },
-    ],
-  },
-];
+// Missions — ten jobs between Lena and a $40,000 debt.
+//
+// Each job is a list of steps. A step is one of:
+//   getIn        climb into a car of a given kind
+//   goto         reach a point (optionally: only counts in a car, and
+//                optionally adds heat the moment she arrives)
+//   steal        take a specific parked car (adds heat on the steal)
+//   combat       clear out the enemies waiting at a spot
+//   checkpoints  hit a chain of points before the clock runs out
+//   collect      pick up every dead drop on the list
+//
+// The step timer is armed the moment a step becomes current — including
+// the very first step of a job. Jobs 5 and 8 used to fail on their first
+// frame because the timer was only armed when advancing to a later step;
+// that is fixed here by arming it inside startStep, which startMission
+// calls for step zero too.
+//
+// The engine never touches the world directly. Everything it needs from
+// outside — spawning the job car, the beacon, the toast, the sounds, the
+// enemies, the heat, the payout — comes through `hooks`, which main.js
+// provides. That keeps this file a pure state machine.
 
 export function createMissions(hooks) {
-  let index = 0; // next mission to start (0-based)
-  let active = null; // { def, stepIndex, timer, checkpointIndex }
-  let completedCount = 0;
+  // Roads run at -210, -150, -90, -30, 30, 90, 150, 210, so every
+  // target below sits on a street a car or a pair of feet can reach.
+  const DEFS = [
+    {
+      id: 1,
+      name: 'First Fare',
+      reward: 1000,
+      intro: [
+        { who: 'Dispatcher', text: 'Vex, you still owe the Harlows forty grand. First fare is waiting — a taxi, north side. Take it and drop the passenger downtown.' },
+        { who: 'Lena', text: 'One fare at a time. Fine. Point me at the cab.' },
+      ],
+      steps: [
+        { type: 'getIn', kind: 'taxi', x: -30, z: 150, label: 'Get in the taxi' },
+        { type: 'goto', x: 90, z: -90, label: 'Drop the passenger off', radius: 12 },
+      ],
+      outro: [
+        { who: 'Dispatcher', text: 'Passenger delivered, no complaints. That is how you start paying a debt.' },
+      ],
+    },
+    {
+      id: 2,
+      name: 'The Package',
+      reward: 1500,
+      intro: [
+        { who: 'Mr. Harlow', text: 'A package is waiting on the west side. Pick it up, carry it east, and do not open it. Curious couriers get fired. Permanently.' },
+        { who: 'Lena', text: 'West side, east side, sealed box. Got it.' },
+      ],
+      steps: [
+        { type: 'goto', x: -150, z: 30, label: 'Pick up the package', radius: 10 },
+        { type: 'goto', x: 150, z: -150, label: 'Deliver the package', radius: 10, wantedOnArrive: 1 },
+      ],
+      outro: [
+        { who: 'Mr. Harlow', text: 'Delivered. The east side boys are watching you now — that is the price of the route.' },
+      ],
+    },
+    {
+      id: 3,
+      name: 'The Getaway',
+      reward: 2000,
+      intro: [
+        { who: 'Dario', text: 'Lena, listen — there is a sports car parked on the east road and a hideout in the northwest. Take the car, lose whoever notices, get to the hideout.' },
+        { who: 'Lena', text: 'You owe me for this one too, little brother.' },
+      ],
+      steps: [
+        { type: 'steal', kind: 'sports', x: 30, z: 90, label: 'Steal the sports car', wantedOnSteal: 2 },
+        { type: 'goto', x: -150, z: -150, label: 'Reach the hideout in the northwest', radius: 12, needCar: true },
+      ],
+      outro: [
+        { who: 'Dario', text: 'You made it. Hideout key is under the mat. Do not ask whose mat.' },
+      ],
+    },
+    {
+      id: 4,
+      name: 'Dockside Deal',
+      reward: 2500,
+      intro: [
+        { who: 'Mr. Harlow', text: 'Three of my men are waiting at the pier and they have forgotten who they work for. Go down there and remind them. Then come home.' },
+        { who: 'Lena', text: 'Three of them. One of me. Fine.' },
+      ],
+      steps: [
+        { type: 'goto', x: -90, z: 180, label: 'Go to the pier', radius: 10 },
+        { type: 'combat', x: -90, z: 180, count: 3, label: 'Deal with the three Harlow men' },
+        { type: 'goto', x: 30, z: 30, label: 'Leave the docks', radius: 10 },
+      ],
+      outro: [
+        { who: 'Mr. Harlow', text: 'They remember now. You have a talent for reminding people, Vex.' },
+      ],
+    },
+    {
+      id: 5,
+      name: 'Night Shift',
+      reward: 3000,
+      intro: [
+        { who: 'Dispatcher', text: 'Five checkpoints, one timer, no excuses. The night route pays triple because nobody finishes it. Prove the nobody wrong.' },
+        { who: 'Lena', text: 'Five stops, one clock. I drive fast when I have to.' },
+      ],
+      steps: [
+        {
+          type: 'checkpoints',
+          label: 'Hit all 5 checkpoints before the timer runs out',
+          timeLimit: 150,
+          points: [
+            { x: -150, z: 150 },
+            { x: 150, z: 150 },
+            { x: 150, z: -150 },
+            { x: -150, z: -150 },
+            { x: 30, z: 30 },
+          ],
+        },
+      ],
+      outro: [
+        { who: 'Dispatcher', text: 'Five for five, inside the clock. The night route has a new name on it.' },
+      ],
+    },
+    {
+      id: 6,
+      name: 'The Big Score',
+      reward: 3500,
+      intro: [
+        { who: 'Mr. Harlow', text: 'A coupe is sitting on the north road with the keys in it. Somebody wants it moved across town, no questions, no stops. You are the somebody.' },
+        { who: 'Lena', text: 'Keys in it. Across town. No stops. I can do no stops.' },
+      ],
+      steps: [
+        { type: 'steal', kind: 'coupe', x: -90, z: -30, label: 'Steal the coupe', wantedOnSteal: 2 },
+        { type: 'goto', x: 150, z: 150, label: 'Deliver the coupe', radius: 12, needCar: true },
+      ],
+      outro: [
+        { who: 'Mr. Harlow', text: 'Parked, locked, untouched. You drive like the car is yours. It is not. Remember that.' },
+      ],
+    },
+    {
+      id: 7,
+      name: 'Marina Ambush',
+      reward: 4000,
+      intro: [
+        { who: 'Dario', text: 'The marina is crawling with the crew that jumped me. They are waiting for a courier. Walk in like you own the place, then walk out the same way.' },
+        { who: 'Lena', text: 'They jumped my brother. They can wait for me instead.' },
+      ],
+      steps: [
+        { type: 'goto', x: 90, z: 180, label: 'Go to the marina', radius: 10 },
+        { type: 'combat', x: 90, z: 180, count: 4, label: 'Clear the ambush at the marina' },
+        { type: 'goto', x: -30, z: -90, label: 'Slip away north', radius: 10 },
+        { type: 'goto', x: -150, z: 90, label: 'Lose them for good', radius: 10 },
+      ],
+      outro: [
+        { who: 'Dario', text: 'Four down and you walked out. The marina is quiet tonight. Thank you, sis.' },
+      ],
+    },
+    {
+      id: 8,
+      name: 'The Last Lap',
+      reward: 5000,
+      intro: [
+        { who: 'Dispatcher', text: 'Six checkpoints, three minutes, one city that is not slowing down for you. This is the lap they time you on. Make it count.' },
+        { who: 'Lena', text: 'Six stops, three minutes. Watch the clock, not me.' },
+      ],
+      steps: [
+        {
+          type: 'checkpoints',
+          label: 'Hit all 6 checkpoints before the timer runs out',
+          timeLimit: 180,
+          points: [
+            { x: -150, z: -150 },
+            { x: 30, z: -150 },
+            { x: 150, z: -30 },
+            { x: 150, z: 150 },
+            { x: -30, z: 150 },
+            { x: -150, z: 30 },
+          ],
+        },
+      ],
+      outro: [
+        { who: 'Dispatcher', text: 'Six for six. The timing board has your name at the top now.' },
+      ],
+    },
+    {
+      id: 9,
+      name: 'Dead Drops',
+      reward: 7000,
+      intro: [
+        { who: 'Mr. Harlow', text: 'The drops are out there waiting. Four of them, spread over the bay. Fetch them, bring them to the pier, and keep your eyes on the road.' },
+        { who: 'Lena', text: 'Four pickups and a pier. Fine. I was not planning to sightsee anyway.' },
+      ],
+      steps: [
+        {
+          type: 'collect',
+          label: 'Pick up the 4 dead drops around the bay',
+          points: [
+            { x: -150, z: 30 },
+            { x: 30, z: -150 },
+            { x: 150, z: 90 },
+            { x: -30, z: 150 },
+          ],
+        },
+        { type: 'goto', x: -90, z: 180, label: 'Bring the drops to the pier', radius: 12 },
+      ],
+      outro: [
+        { who: 'Mr. Harlow', text: 'All four, unopened, on time. You are becoming the most reliable thing in this city, Vex.' },
+      ],
+    },
+    {
+      id: 10,
+      name: "Harlow's Farewell",
+      reward: 12000,
+      intro: [
+        { who: 'Mr. Harlow', text: 'One last job, Vex. A getaway car on the east road — take it, run the six checkpoints, and do it while the whole bay watches. Then your brother is free.' },
+        { who: 'Lena', text: 'Six checkpoints, four minutes, one debt. This ends tonight.' },
+      ],
+      steps: [
+        { type: 'steal', kind: 'sports', x: 90, z: -90, label: 'Steal the getaway car', wantedOnSteal: 3 },
+        {
+          type: 'checkpoints',
+          label: 'Run the 6 checkpoints before the timer runs out',
+          timeLimit: 240,
+          points: [
+            { x: 150, z: -150 },
+            { x: 150, z: 150 },
+            { x: -30, z: 150 },
+            { x: -150, z: 30 },
+            { x: -150, z: -150 },
+            { x: 30, z: -90 },
+          ],
+        },
+      ],
+      outro: [
+        { who: 'Mr. Harlow', text: 'Done. The debt is paid, the slate is clean. Solmar Bay is yours now, Vex — drive it like you mean it.' },
+        { who: 'Lena', text: 'Forty grand. Ten jobs. Dario, we are free.' },
+      ],
+    },
+  ];
 
-  function currentDef() {
-    return DEFS[index] || null;
-  }
+  let completedCount = 0;
+  let nextIndex = 0;
+  let active = null;
+  let activeIndex = -1;
+  let activeId = 0;
+  let stepIndex = 0;
+  let timer = 0;
+  let collected = [];
+  let checkIndex = 0;
+  let missionCar = null;
+  let lastX = 0;
+  let lastZ = 0;
 
   function currentStep() {
-    if (!active) return null;
-    return active.def.steps[active.stepIndex] || null;
+    return active ? active.steps[stepIndex] : null;
   }
 
-  function objectiveText() {
-    if (!active) {
-      if (completedCount >= MISSIONS.total) return { name: 'BAY LEGEND', text: 'All 10 jobs done. Solmar Bay is yours. Free roam — the city never sleeps.' };
-      if (completedCount >= 6) return { name: 'DEBT PAID', text: `The $40,000 is paid. ${completedCount - 6} of 4 extra jobs done — find the yellow marker for the next one.` };
-      const next = currentDef();
-      return { name: 'FREE ROAM', text: next ? `Find the yellow marker to start "${next.name}" ($${next.reward.toLocaleString()}).` : 'Free roam.' };
-    }
+  // Point the beacon at whatever the current step wants Lena to find.
+  function updateBeacon() {
     const step = currentStep();
-    return { name: active.def.name.toUpperCase(), text: step ? step.label : '' };
-  }
-
-  function moveBeacon() {
-    const step = currentStep();
-    if (!step) { hooks.setBeacon(0, 0, false); return; }
-    if (step.type === 'checkpoints') {
-      const point = step.points[active.checkpointIndex] || step.points[0];
-      hooks.setBeacon(point.x, point.z, true);
-    } else if (step.type === 'collect') {
-      const point = step.points[active.collected] || step.points[0];
-      hooks.setBeacon(point.x, point.z, true);
-    } else if (step.x !== undefined) {
-      hooks.setBeacon(step.x, step.z, true);
-    } else {
+    if (!step) {
       hooks.setBeacon(0, 0, false);
-    }
-  }
-
-  function showIntro(def) {
-    let delay = 0;
-    for (const line of def.intro) {
-      window.setTimeout(() => hooks.dialogue(line.who, line.text), delay);
-      delay += 4200;
-    }
-  }
-
-  // Arm a step's own state: the checkpoints clock, the collect markers.
-  // Both the first step (startMission) and later steps (advanceStep) go
-  // through here — before this fix a mission whose first step was a timed
-  // checkpoint run started with timer 0 and failed on its first frame.
-  function setupStep(step) {
-    if (!step) return;
-    if (step.type === 'checkpoints') {
-      active.checkpointIndex = 0;
-      active.timer = step.timeLimit;
-    }
-    if (step.type === 'collect') {
-      active.collected = 0;
-      if (hooks.showCollect) hooks.showCollect(step.points);
-    }
-  }
-
-  function startMission(i) {
-    const def = DEFS[i];
-    if (!def) return false;
-    active = { def, stepIndex: 0, timer: 0, checkpointIndex: 0, collected: 0 };
-    index = i;
-    const step = currentStep();
-    if (step && (step.type === 'getIn' || step.type === 'steal')) {
-      hooks.spawnMissionCar(step.kind, step.x, step.z);
-    }
-    setupStep(step);
-    showIntro(def);
-    hooks.toast(`${def.name} — $${def.reward.toLocaleString()}`);
-    hooks.sound('mission');
-    moveBeacon();
-    return true;
-  }
-
-  function startNext() {
-    if (index >= DEFS.length) return false;
-    return startMission(index);
-  }
-
-  function advanceStep() {
-    active.stepIndex += 1;
-    if (active.stepIndex >= active.def.steps.length) {
-      completeMission();
       return;
     }
+    if (step.type === 'collect') {
+      const next = step.points.find((p, i) => !collected[i]);
+      if (next) hooks.setBeacon(next.x, next.z, true);
+      else hooks.setBeacon(0, 0, false);
+    } else if (step.type === 'checkpoints') {
+      const p = step.points[checkIndex];
+      if (p) hooks.setBeacon(p.x, p.z, true);
+      else hooks.setBeacon(0, 0, false);
+    } else if (step.x !== undefined) {
+      hooks.setBeacon(step.x, step.z, true);
+    }
+  }
+
+  // Arm a step: timer, job car, enemies, drop markers. This runs for
+  // step zero as well — a timed first step must have its clock running
+  // before the first update, or the job fails on frame one.
+  function armStep() {
     const step = currentStep();
+    if (!step) return;
+    if (step.type === 'checkpoints') {
+      timer = step.timeLimit;
+      checkIndex = 0;
+    } else {
+      timer = 0;
+    }
     if (step.type === 'getIn' || step.type === 'steal') {
-      hooks.spawnMissionCar(step.kind, step.x, step.z);
+      missionCar = hooks.spawnMissionCar(step.kind, step.x, step.z);
     }
     if (step.type === 'combat') {
       hooks.spawnEnemies(step.x, step.z, step.count);
     }
-    setupStep(step);
-    moveBeacon();
+    if (step.type === 'collect') {
+      collected = step.points.map(() => false);
+      hooks.showCollect(step.points);
+    }
+  }
+
+  function startStep() {
+    armStep();
+    updateBeacon();
+  }
+
+  function advanceStep() {
+    stepIndex += 1;
+    if (stepIndex >= active.steps.length) {
+      completeMission();
+      return;
+    }
+    startStep();
   }
 
   function completeMission() {
-    const def = active.def;
-    active = null;
+    const def = active;
     completedCount += 1;
-    index = completedCount;
-    hooks.addCash(def.reward);
-    hooks.toast(`Job done — +$${def.reward.toLocaleString()}`);
-    hooks.sound('cash');
+    nextIndex = activeIndex + 1;
+    active = null;
+    activeIndex = -1;
+    activeId = 0;
+    stepIndex = 0;
+    timer = 0;
+    missionCar = null;
     hooks.setBeacon(0, 0, false);
-    let delay = 600;
-    for (const line of def.outro) {
-      window.setTimeout(() => hooks.dialogue(line.who, line.text), delay);
-      delay += 4200;
-    }
-    hooks.onMissionComplete(def, completedCount);
-    if (hooks.hideCollect) hooks.hideCollect();
+    hooks.showCollect(null);
+    hooks.onMissionComplete(def);
   }
 
   function failMission(reason) {
-    hooks.toast(reason);
-    hooks.sound('busted');
+    const def = active;
     active = null;
+    activeIndex = -1;
+    activeId = 0;
+    stepIndex = 0;
+    timer = 0;
+    missionCar = null;
     hooks.setBeacon(0, 0, false);
-    if (hooks.hideCollect) hooks.hideCollect();
+    hooks.showCollect(null);
+    hooks.onMissionFailed(def, reason);
   }
 
-  /**
-   * Advance the active mission. `world` carries what the mission checks:
-   * player position, whether they are in a car, the car they drive, and the
-   * enemies left standing. Returns nothing; it talks through the hooks.
-   */
-  function update(dt, world) {
+  function startMission(i) {
+    if (i < 0 || i >= DEFS.length) return false;
+    active = DEFS[i];
+    activeIndex = i;
+    activeId = active.id;
+    nextIndex = i;
+    stepIndex = 0;
+    startStep();
+    hooks.toast('Job ' + active.id + ' of ' + DEFS.length + ': ' + active.name);
+    hooks.sound('mission');
+    return true;
+  }
+
+  function startNext() {
+    if (nextIndex >= DEFS.length) return false;
+    return startMission(nextIndex);
+  }
+
+  function update(dt, player) {
     if (!active) return;
+    lastX = player.x;
+    lastZ = player.z;
     const step = currentStep();
     if (!step) return;
+
+    // The clock only ever runs down. It was armed in armStep, so a job
+    // that opens on a timed step is already ticking.
     if (step.type === 'checkpoints') {
-      active.timer -= dt;
-      const point = step.points[active.checkpointIndex];
-      const dx = world.x - point.x;
-      const dz = world.z - point.z;
-      if (Math.sqrt(dx * dx + dz * dz) < 7) {
-        active.checkpointIndex += 1;
-        hooks.sound('pickup');
-        hooks.toast(`Checkpoint ${active.checkpointIndex} of ${step.points.length}`);
-        if (active.checkpointIndex >= step.points.length) { advanceStep(); return; }
-        moveBeacon();
+      timer -= dt;
+      if (timer <= 0) {
+        timer = 0;
+        failMission('time');
+        return;
       }
-      if (active.timer <= 0) {
-        failMission('Out of time — try again at the marker.');
-      }
-      return;
     }
-    if (step.type === 'collect') {
-      // Walk or drive over each drop: the beacon points at the next one.
-      const point = step.points[active.collected];
-      const dx = world.x - point.x;
-      const dz = world.z - point.z;
-      if (Math.sqrt(dx * dx + dz * dz) < 4) {
-        if (hooks.collectReached) hooks.collectReached(active.collected);
-        active.collected += 1;
-        hooks.sound('pickup');
-        hooks.toast(`Dead drop ${active.collected} of ${step.points.length}`);
-        if (active.collected >= step.points.length) { advanceStep(); return; }
-        moveBeacon();
-      }
-      return;
-    }
-    if (step.type === 'combat') {
-      if (world.enemiesLeft <= 0) advanceStep();
-      return;
-    }
-    if (step.type === 'getIn') {
-      if (world.inCar && world.carKind === step.kind) advanceStep();
-      return;
-    }
-    if (step.type === 'steal') {
-      if (world.inCar && world.carKind === step.kind) {
-        if (step.wantedOnSteal) hooks.addStars(step.wantedOnSteal, 'Grand theft auto');
+
+    if (step.type === 'goto') {
+      const d = Math.hypot(step.x - player.x, step.z - player.z);
+      if (d < (step.radius || 12) && (!step.needCar || player.inCar)) {
+        if (step.wantedOnArrive) hooks.addStars(step.wantedOnArrive);
         advanceStep();
       }
-      return;
+    } else if (step.type === 'getIn') {
+      if (player.inCar && player.car && (!step.kind || player.car.kind === step.kind)) {
+        advanceStep();
+      }
+    } else if (step.type === 'steal') {
+      if (player.inCar && player.car === missionCar) {
+        hooks.addStars(step.wantedOnSteal || 1);
+        advanceStep();
+      }
+    } else if (step.type === 'combat') {
+      if (hooks.enemiesLeft() === 0) advanceStep();
+    } else if (step.type === 'checkpoints') {
+      const p = step.points[checkIndex];
+      const radius = step.radius || 12;
+      if (p && Math.hypot(p.x - player.x, p.z - player.z) < radius) {
+        checkIndex += 1;
+        hooks.sound('pickup');
+        if (checkIndex >= step.points.length) advanceStep();
+        else updateBeacon();
+      }
+    } else if (step.type === 'collect') {
+      let changed = false;
+      const radius = step.radius || 6;
+      step.points.forEach((p, i) => {
+        if (!collected[i] && Math.hypot(p.x - player.x, p.z - player.z) < radius) {
+          collected[i] = true;
+          changed = true;
+          hooks.sound('pickup');
+          hooks.toast(
+            'Dead drop ' + collected.filter(Boolean).length + ' of ' + step.points.length,
+          );
+        }
+      });
+      if (changed) {
+        if (collected.every(Boolean)) {
+          hooks.showCollect(null);
+          advanceStep();
+        } else {
+          updateBeacon();
+        }
+      }
     }
-    // Plain 'goto' steps: arrive inside the radius (in a car when the job says so).
-    const dx = world.x - step.x;
-    const dz = world.z - step.z;
-    const dist = Math.sqrt(dx * dx + dz * dz);
-    if (dist < (step.radius || 6)) {
-      if (step.needCar && !world.inCar) return;
-      if (step.wantedOnArrive) hooks.addStars(step.wantedOnArrive, 'Tipped off');
-      hooks.sound('pickup');
-      advanceStep();
+  }
+
+  // { name, text } for the HUD banner. Distances come from the player
+  // position cached by the last update call.
+  function objectiveText() {
+    if (!active) {
+      return { name: 'FREE ROAM', text: 'Find the yellow marker to start a job.' };
     }
+    const step = currentStep();
+    let text = step.label;
+    if (step.type === 'collect') {
+      const got = collected.filter(Boolean).length;
+      text += ' (' + got + '/' + step.points.length + ')';
+      const next = step.points.find((p, i) => !collected[i]);
+      if (next) {
+        text += ' · ' + Math.round(Math.hypot(next.x - lastX, next.z - lastZ)) + 'm';
+      }
+    } else if (step.type === 'checkpoints') {
+      text += ' (' + checkIndex + '/' + step.points.length + ')';
+      const p = step.points[checkIndex];
+      if (p) {
+        text += ' · ' + Math.round(Math.hypot(p.x - lastX, p.z - lastZ)) + 'm';
+      }
+    } else if (step.type === 'combat') {
+      text += ' (' + hooks.enemiesLeft() + ' left)';
+    } else if (step.x !== undefined) {
+      text += ' · ' + Math.round(Math.hypot(step.x - lastX, step.z - lastZ)) + 'm';
+    }
+    return { name: active.name.toUpperCase(), text };
   }
 
   function timerLeft() {
-    if (!active) return 0;
-    const step = currentStep();
-    return step && step.type === 'checkpoints' ? Math.max(0, active.timer) : 0;
+    return Math.max(0, timer);
   }
 
   function isActive() {
@@ -411,12 +459,26 @@ export function createMissions(hooks) {
   }
 
   function state() {
-    return { completedCount, nextIndex: index, activeId: active ? active.def.id : 0 };
+    return { completedCount, nextIndex, activeId };
   }
 
   function restore(saved) {
+    if (!saved) return;
     completedCount = saved.completedCount || 0;
-    index = saved.nextIndex || completedCount;
+    nextIndex = saved.nextIndex || 0;
+    active = null;
+    activeIndex = -1;
+    activeId = 0;
+    stepIndex = 0;
+    timer = 0;
+  }
+
+  function currentDef() {
+    return active || DEFS[nextIndex] || null;
+  }
+
+  function activeMission() {
+    return active;
   }
 
   return {
@@ -430,6 +492,6 @@ export function createMissions(hooks) {
     state,
     restore,
     currentDef,
-    activeMission() { return active ? active.def : null; },
+    activeMission,
   };
 }

@@ -1,22 +1,47 @@
-// Every tuning number, colour and key binding for Solmar Bay lives here, so a
-// balance pass touches one file and nothing else.
+// Solmar Bay — tuning constants.
+//
+// Every number the game balances on lives here, so a rebalance is a
+// one-file edit. The city builders and the systems below only ever read
+// these values; none of them invent their own.
 
+// The city is a regular grid. Roads run north-south and east-west every
+// `blockSize` metres, with `blocks` blocks per side, so the built-up half
+// extent is blocks * blockSize / 2 = 210. Past that line is beach, then sea.
 export const WORLD = {
-  blockSize: 46,
-  roadWidth: 14,
-  blocks: 7, // 7 x 7 blocks; the city is a square grid with a beach on the south edge
+  blockSize: 60,
+  roadWidth: 12,
+  blocks: 7,
   beachDepth: 46,
-  seaDepth: 120,
+  seaDepth: 50,
 };
 
+// Colours, as hex numbers. Sky is the pale morning blue the menu opens on.
+export const PALETTE = {
+  sky: 0x8ec9ee,
+  sun: 0xfff2cc,
+  sea: 0x2e7f9e,
+  sand: 0xd9c08a,
+  asphalt: 0x3a3f46,
+  sidewalk: 0x9aa0a6,
+  grass: 0x5d8a4a,
+  building: [0x8a93a6, 0x7a8296, 0x9aa0b6, 0x6b7280, 0xa8a0b8],
+  glass: 0x9fc4d8,
+  playerJacket: 0x7a2e8f,
+  playerPants: 0x2e3440,
+  taxi: 0xf5c518,
+  police: 0x2b4acb,
+  marker: 0xffd23f,
+};
+
+// Lena on foot.
 export const PLAYER = {
-  walkSpeed: 6.5,
-  runSpeed: 11,
-  radius: 0.55,
+  walkSpeed: 6,
+  runSpeed: 10,
+  radius: 0.8,
   height: 1.8,
   health: 100,
-  punchDamage: 18,
-  punchRange: 2.4,
+  punchDamage: 25,
+  punchRange: 2.2,
   punchRate: 0.45,
   shootDamage: 34,
   shootRange: 60,
@@ -24,91 +49,99 @@ export const PLAYER = {
   startCash: 250,
 };
 
+// Generic car physics. A kind's tune overrides accel / topSpeed / grip.
 export const CAR = {
-  accel: 16,
+  accel: 14,
   brake: 30,
-  reverseAccel: 9,
-  maxSpeed: 34,
-  maxReverse: 10,
+  reverseAccel: 8,
+  maxSpeed: 43,
+  maxReverse: 12,
   steerAngle: 0.55,
-  grip: 6.5,
-  handbrakeGrip: 2.2,
+  grip: 1.0,
+  handbrakeGrip: 0.35,
 };
 
-// Per-kind handling: sports cars are quick but twitchy, vans are slow and
-// planted, sedans and taxis sit in the middle. Every parked and traffic car
-// rolls one of these kinds; missions ask for a kind by name.
+// Five kinds of traffic. Each one drives differently: the sports car is
+// the fastest thing on the road, the van is a brick with a steering wheel,
+// and the taxi sits in the middle because it has fares to catch.
 export const CAR_KINDS = {
-  sedan: { accel: 16, topSpeed: 34, grip: 6.5, label: 'SEDAN' },
-  sports: { accel: 21, topSpeed: 43, grip: 5.6, label: 'SPORTS' },
-  coupe: { accel: 21, topSpeed: 43, grip: 5.6, label: 'COUPE' },
-  van: { accel: 11, topSpeed: 26, grip: 7.6, label: 'VAN' },
-  taxi: { accel: 16, topSpeed: 34, grip: 6.5, label: 'TAXI' },
+  sedan: { accel: 12, topSpeed: 34, grip: 1.0, label: 'Sedan' },
+  sports: { accel: 18, topSpeed: 43, grip: 1.15, label: 'Sports' },
+  coupe: { accel: 15, topSpeed: 38, grip: 1.1, label: 'Coupe' },
+  van: { accel: 9, topSpeed: 26, grip: 0.85, label: 'Van' },
+  taxi: { accel: 13, topSpeed: 31, grip: 1.0, label: 'Taxi' },
 };
 
+// What a crash costs. Damage is added per unit of impact speed; past
+// `smokeAt` the car starts smoking, and at 100 damage the top speed has
+// fallen by `maxSpeedLoss` (half).
 export const CAR_DAMAGE = {
-  crashPerSpeed: 0.9, // damage points per unit of impact speed
-  smokeAt: 50, // damage above this smokes
-  maxSpeedLoss: 0.5, // a wrecked car loses this much of its top speed
+  crashPerSpeed: 1.21,
+  smokeAt: 50,
+  maxSpeedLoss: 0.5,
 };
 
-export const TRAFFIC = { count: 14, speedMin: 7, speedMax: 11 };
-export const PEDESTRIANS = { count: 26, speedMin: 1.1, speedMax: 2.1 };
+// Ambient traffic.
+export const TRAFFIC = {
+  count: 14,
+  speedMin: 8,
+  speedMax: 16,
+};
 
+// People on the sidewalks.
+export const PEDESTRIANS = {
+  count: 26,
+  speedMin: 1.2,
+  speedMax: 2.2,
+};
+
+// The Solmar Bay Police Department.
+export const POLICE = {
+  baseCars: 0,
+  carsPerStar: 1,
+  maxCars: 5,
+  speed: 36,
+  ramDamage: 12,
+  heliAtStars: 4,
+  heliHeight: 30,
+  heliOrbit: 38,
+};
+
+// Heat. Stars fade one at a time once the timer runs out; getting caught
+// on foot while standing still near a cruiser means a bust.
 export const WANTED = {
-  decaySeconds: 26, // seconds clean before one star fades
+  decaySeconds: 20,
   stealStars: 1,
   hitPedStars: 1,
-  shootStars: 2,
+  shootStars: 1,
   killCopStars: 2,
   maxStars: 5,
-  bustDistance: 3.2,
-  bustStillSeconds: 2.2,
+  bustDistance: 6,
+  bustStillSeconds: 4,
 };
 
-export const POLICE = {
-  baseCars: 1,
-  carsPerStar: 1,
-  maxCars: 6,
-  speed: 30,
-  ramDamage: 6,
-  heliAtStars: 4, // a helicopter joins the chase at this wanted level
-  heliHeight: 42,
-  heliOrbit: 26,
+// The story: ten jobs to clear a $40,000 debt.
+export const MISSIONS = {
+  total: 10,
+  debtTarget: 40000,
 };
 
-export const MISSIONS = { total: 10, debtTarget: 40000 };
-
-export const SAVE_KEY = 'solmar-bay.save.v1';
-
-export const PALETTE = {
-  sky: 0x8ec9ee,
-  sun: 0xfff2cf,
-  sea: 0x2a7f9e,
-  sand: 0xe8cf9a,
-  asphalt: 0x33363d,
-  sidewalk: 0x9aa0a8,
-  grass: 0x5d9b52,
-  building: [0xe8b4a0, 0xf2d492, 0xa8c8d8, 0xd8a8c0, 0xb8d8a8, 0xe0e0e0, 0xc8b8e8, 0xf0a868],
-  glass: 0x9fd4e8,
-  playerJacket: 0xff5d73,
-  playerPants: 0x2a3550,
-  taxi: 0xffc93c,
-  police: 0x1c2f6e,
-  marker: 0xffd23f,
-};
-
+// Keyboard. These are `code` values, so they work on any layout.
 export const KEYS = {
-  forward: ['KeyW', 'ArrowUp'],
-  back: ['KeyS', 'ArrowDown'],
-  left: ['KeyA', 'ArrowLeft'],
-  right: ['KeyD', 'ArrowRight'],
-  run: ['ShiftLeft', 'ShiftRight'],
-  interact: ['KeyE'],
-  attack: ['KeyF'],
-  handbrake: ['Space'],
-  pause: ['KeyP', 'Escape'],
-  mute: ['KeyM'],
+  forward: 'KeyW',
+  back: 'KeyS',
+  left: 'KeyA',
+  right: 'KeyD',
+  run: 'ShiftLeft',
+  interact: 'KeyE',
+  attack: 'KeyF',
+  handbrake: 'Space',
+  pause: 'KeyP',
+  mute: 'KeyM',
 };
 
-export const DAY_LENGTH = 480; // seconds of play per in-game day; the clock starts at 09:00
+// A full in-game day lasts 48 real minutes.
+export const DAY_LENGTH = 2880;
+
+// Local save slot.
+export const SAVE_KEY = 'solmar-bay.save.v1';

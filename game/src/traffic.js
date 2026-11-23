@@ -1,105 +1,116 @@
-// The city's traffic: cars that loop the blocks on the road grid, slow for the
-// car ahead, and honk (visually) when the player blocks them. Each one owns a
-// rectangular loop around one block; at every corner it turns onto the next leg.
+// Traffic — the cars that make Solmar Bay feel alive.
+//
+// A fixed fleet cruises the grid on cardinal headings: north, south,
+// east, west, turning at random like drivers who changed their minds.
+// Cars the player is driving, and cars parked for a job, are left alone.
+// A car that ends up far from the player is quietly respawned closer, so
+// the streets around Lena are never empty.
 
 import { TRAFFIC } from './config.js';
-import { Car, randomCarColor, randomKind } from './vehicles.js';
-
-function loopForBlock(city, rng) {
-  const bx = rng.pick(city.blocks);
-  const bz = rng.pick(city.blocks);
-  const half = 30; // half the pitch: the loop runs on the roads around this block
-  const corners = [
-    { x: bx - half, z: bz - half },
-    { x: bx + half, z: bz - half },
-    { x: bx + half, z: bz + half },
-    { x: bx - half, z: bz + half },
-  ];
-  if (rng.chance(0.5)) corners.reverse();
-  return corners;
-}
+import { Car, randomKind, randomCarColor } from './vehicles.js';
 
 export function createTraffic(scene, city, rng) {
   const cars = [];
-  for (let i = 0; i < TRAFFIC.count; i += 1) {
-    const car = new Car(scene, randomCarColor(rng), { kind: randomKind(rng) });
-    const loop = loopForBlock(city, rng);
-    const corner = loop[Math.floor(rng.next() * loop.length)];
-    car.place(corner.x, corner.z, rng.next() * Math.PI * 2);
-    cars.push({
-      car,
-      loop,
-      leg: 0,
-      speed: rng.range(TRAFFIC.speedMin, TRAFFIC.speedMax),
-      stuck: 0,
+
+  // A road point somewhere near (x, z) when one is given.
+  function roadPointNear(x, z) {
+    let pt = city.randomRoadPoint(rng);
+    if (x === undefined) return pt;
+    for (let i = 0; i < 8; i++) {
+      const c = city.randomRoadPoint(rng);
+      if (Math.hypot(c.x - x, c.z - z) < 200) return c;
+    }
+    return pt;
+  }
+
+  function spawnCar(nearX, nearZ) {
+    const pt = roadPointNear(nearX, nearZ);
+    const car = new Car(scene, {
+      kind: randomKind(rng),
+      color: randomCarColor(rng),
+      x: pt.x,
+      z: pt.z,
+      heading: Math.floor(rng.range(0, 4)) * Math.PI / 2,
     });
+    car.cruise = rng.range(TRAFFIC.speedMin, TRAFFIC.speedMax);
+    car.turnTimer = rng.range(2, 7);
+    cars.push(car);
+    return car;
   }
 
-  function distanceTo(other, x, z) {
-    const dx = other.car.x - x;
-    const dz = other.car.z - z;
-    return Math.sqrt(dx * dx + dz * dz);
+  for (let i = 0; i < TRAFFIC.count; i++) spawnCar();
+
+  // True when a coordinate sits on a cross street, so a turn happens
+  // at an intersection instead of in the middle of a block.
+  function nearCrossStreet(v) {
+    for (const r of city.roads) {
+      if (Math.abs(v - r) < 6) return true;
+    }
+    return false;
   }
 
-  function step(dt, playerCar, playerPos) {
-    for (const entry of cars) {
-      const { car, loop } = entry;
-      if (car.occupied) continue; // the player is driving this one
-      const target = loop[(entry.leg + 1) % loop.length];
-      const dx = target.x - car.x;
-      const dz = target.z - car.z;
-      const dist = Math.sqrt(dx * dx + dz * dz);
-      if (dist < 3) {
-        entry.leg = (entry.leg + 1) % loop.length;
-        continue;
+  function step(dt, playerX, playerZ) {
+    for (const car of cars) {
+      // The player's car and parked job cars drive themselves — or not
+      // at all. Traffic never touches them.
+      if (car.occupied || car.parked) continue;
+
+      car.turnTimer -= dt;
+      if (car.turnTimer <= 0) {
+        car.turnTimer = rng.range(3, 8);
+        // Turning across the grid only makes sense at a crossing: a car
+        // running east-west turns where a north-south road meets it.
+        const alongX = Math.abs(Math.sin(car.heading)) > 0.5;
+        const crossPos = alongX ? car.x : car.z;
+        if (rng.chance(0.35) && nearCrossStreet(crossPos)) {
+          car.heading += rng.pick([-Math.PI / 2, Math.PI / 2]);
+        }
       }
-      const wantHeading = Math.atan2(dx, dz);
-      let diff = wantHeading - car.heading;
-      while (diff > Math.PI) diff -= Math.PI * 2;
-      while (diff < -Math.PI) diff += Math.PI * 2;
-      car.heading += Math.max(-1.6 * dt, Math.min(1.6 * dt, diff));
-      // Slow down for the car ahead on the same leg.
-      let ahead = false;
-      for (const other of cars) {
-        if (other === entry || other.car.occupied) continue;
-        const fwd = car.forwardVector();
-        const ox = other.car.x - car.x;
-        const oz = other.car.z - car.z;
-        const along = ox * fwd.x + oz * fwd.z;
-        const side = Math.abs(ox * fwd.z - oz * fwd.x);
-        if (along > 0 && along < 9 && side < 2.4) { ahead = true; break; }
-      }
-      // And for the player's car or the player on foot, right in front.
-      const px = playerCar ? playerCar.x : playerPos.x;
-      const pz = playerCar ? playerCar.z : playerPos.z;
+
       const fwd = car.forwardVector();
-      const ox = px - car.x;
-      const oz = pz - car.z;
-      const along = ox * fwd.x + oz * fwd.z;
-      const side = Math.abs(ox * fwd.z - oz * fwd.x);
-      if (along > 0 && along < 8 && side < 2.2) ahead = true;
-
-      const speed = ahead ? entry.speed * 0.15 : entry.speed;
-      car.x += fwd.x * speed * dt;
-      car.z += fwd.z * speed * dt;
+      const nx = car.x + fwd.x * car.cruise * dt;
+      const nz = car.z + fwd.z * car.cruise * dt;
+      // Buildings push the car back out; a blocked car turns away
+      // instead of grinding along the wall forever.
+      const fixed = city.collideCircle(nx, nz, 2.2);
+      if (Math.abs(fixed.x - nx) > 0.01 || Math.abs(fixed.z - nz) > 0.01) {
+        car.heading += Math.PI / 2;
+        car.x = fixed.x;
+        car.z = fixed.z;
+      } else {
+        car.x = nx;
+        car.z = nz;
+      }
       car.sync();
+
+      // Too far from the action: come back near the player.
+      if (Math.hypot(car.x - playerX, car.z - playerZ) > 260) {
+        const pt = roadPointNear(playerX, playerZ);
+        car.place(pt.x, pt.z, Math.floor(rng.range(0, 4)) * Math.PI / 2);
+        car.cruise = rng.range(TRAFFIC.speedMin, TRAFFIC.speedMax);
+      }
     }
   }
 
+  // Closest car nobody is driving, within maxDist metres. Null if none.
   function nearestFreeCar(x, z, maxDist) {
     let best = null;
-    let bestDist = maxDist;
-    for (const entry of cars) {
-      if (entry.car.occupied) continue;
-      const d = distanceTo(entry, x, z);
-      if (d < bestDist) { bestDist = d; best = entry.car; }
+    let bestD = maxDist;
+    for (const car of cars) {
+      if (car.occupied) continue;
+      const d = Math.hypot(car.x - x, car.z - z);
+      if (d < bestD) {
+        bestD = d;
+        best = car;
+      }
     }
     return best;
   }
 
   function removeCar(car) {
-    const index = cars.findIndex((entry) => entry.car === car);
-    if (index >= 0) cars.splice(index, 1);
+    const i = cars.indexOf(car);
+    if (i >= 0) cars.splice(i, 1);
+    scene.remove(car.mesh);
   }
 
   return { cars, step, nearestFreeCar, removeCar };
