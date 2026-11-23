@@ -19,6 +19,9 @@ export function createHud() {
   const speedoEl = el('speedo');
   const mphEl = el('mph');
   const gearEl = el('gear');
+  const carKindEl = el('carKind');
+  const damageFillEl = el('damagefill');
+  const damageTextEl = el('carDamage');
   const crosshairEl = el('crosshair');
   const menuEl = el('menu');
   const pausedEl = el('paused');
@@ -72,16 +75,22 @@ export function createHud() {
     starsEl.innerHTML = html;
   }
 
-  function updateObjective(name, text, timerLeft) {
-    missionNameEl.textContent = name;
-    missionTextEl.textContent = timerLeft > 0 ? `${text} — ${Math.ceil(timerLeft)}s left` : text;
+  function updateObjective(name, text, timerLeft, progress = '', distanceM = 0) {
+    missionNameEl.textContent = progress ? `${name} · ${progress}` : name;
+    let shown = text;
+    if (timerLeft > 0) shown = `${text} — ${Math.ceil(timerLeft)}s left`;
+    if (distanceM > 0) shown = `${shown} · ${Math.round(distanceM)}m`;
+    missionTextEl.textContent = shown;
   }
 
-  function updateSpeed(inCar, mph, reversing) {
+  function updateSpeed(inCar, mph, reversing, kind = '', damage = 0) {
     speedoEl.style.display = inCar ? 'block' : 'none';
     if (inCar) {
       mphEl.textContent = String(Math.round(mph));
       gearEl.textContent = reversing ? 'R' : 'D';
+      carKindEl.textContent = kind;
+      damageFillEl.style.width = `${Math.max(0, Math.min(100, damage))}%`;
+      damageTextEl.textContent = `${Math.round(damage)}%`;
     }
   }
 
@@ -132,7 +141,11 @@ export function createHud() {
       mapCtx.fill();
     };
     if (world.beaconVisible) blip(world.beaconX, world.beaconZ, '#ffd23f', 6);
-    for (const car of world.policeCars) blip(car.x, car.z, '#3a6aff', 4);
+    for (const car of world.policeCars) {
+      // The helicopter reads as a bigger yellow blip; cars stay blue.
+      if (car.heli) blip(car.x, car.z, '#ffd23f', 6);
+      else blip(car.x, car.z, '#3a6aff', 4);
+    }
     for (const car of world.trafficCars) blip(car.x, car.z, '#c8c8c8', 2.5);
     // The player is a white triangle pointing along their heading.
     const [px, py] = toMap(world.playerX, world.playerZ);

@@ -3,7 +3,7 @@
 // rectangular loop around one block; at every corner it turns onto the next leg.
 
 import { TRAFFIC } from './config.js';
-import { Car, randomCarColor } from './vehicles.js';
+import { Car, randomCarColor, randomKind } from './vehicles.js';
 
 function loopForBlock(city, rng) {
   const bx = rng.pick(city.blocks);
@@ -22,7 +22,7 @@ function loopForBlock(city, rng) {
 export function createTraffic(scene, city, rng) {
   const cars = [];
   for (let i = 0; i < TRAFFIC.count; i += 1) {
-    const car = new Car(scene, randomCarColor(rng));
+    const car = new Car(scene, randomCarColor(rng), { kind: randomKind(rng) });
     const loop = loopForBlock(city, rng);
     const corner = loop[Math.floor(rng.next() * loop.length)];
     car.place(corner.x, corner.z, rng.next() * Math.PI * 2);

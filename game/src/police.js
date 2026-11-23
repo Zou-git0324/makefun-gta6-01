@@ -5,12 +5,72 @@
 import { PALETTE, POLICE, WANTED } from './config.js';
 import { Car } from './vehicles.js';
 
+const THREE = window.THREE;
+
 export function createPolice(scene, city, rng) {
   let stars = 0;
   let cleanTimer = 0;
   let bustTimer = 0;
   let sirenOn = false;
+  let heliAngle = 0;
   const cars = [];
+
+  // The SBPD helicopter: body, tail, spinning main rotor and a searchlight
+  // cone that tracks the player. It only flies at four stars and up.
+  const heli = new THREE.Group();
+  const heliBody = new THREE.Mesh(
+    new THREE.BoxGeometry(2.4, 1.4, 4.2),
+    new THREE.MeshLambertMaterial({ color: 0x1c2f6e }),
+  );
+  heliBody.castShadow = true;
+  heli.add(heliBody);
+  const heliTail = new THREE.Mesh(
+    new THREE.BoxGeometry(0.7, 0.7, 3.4),
+    new THREE.MeshLambertMaterial({ color: 0x1c2f6e }),
+  );
+  heliTail.position.set(0, 0.2, -3.6);
+  heli.add(heliTail);
+  const heliGlass = new THREE.Mesh(
+    new THREE.BoxGeometry(2.0, 0.7, 1.2),
+    new THREE.MeshLambertMaterial({ color: 0x9fd4e8 }),
+  );
+  heliGlass.position.set(0, 0.3, 1.8);
+  heli.add(heliGlass);
+  const rotor = new THREE.Mesh(
+    new THREE.BoxGeometry(9, 0.08, 0.5),
+    new THREE.MeshBasicMaterial({ color: 0x222222 }),
+  );
+  rotor.position.y = 1.0;
+  heli.add(rotor);
+  const beam = new THREE.Mesh(
+    new THREE.ConeGeometry(7, POLICE.heliHeight, 16, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xfff2b0, transparent: true, opacity: 0.13, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  heli.add(beam);
+  heli.visible = false;
+  scene.add(heli);
+
+  function heliActive() {
+    return heli.visible;
+  }
+
+  function stepHeli(dt, playerPos, timeSeconds) {
+    if (stars < POLICE.heliAtStars) {
+      heli.visible = false;
+      return;
+    }
+    heli.visible = true;
+    heliAngle += dt * 0.35;
+    const hx = playerPos.x + Math.cos(heliAngle) * POLICE.heliOrbit;
+    const hz = playerPos.z + Math.sin(heliAngle) * POLICE.heliOrbit;
+    heli.position.set(hx, POLICE.heliHeight, hz);
+    heli.rotation.y = Math.atan2(playerPos.x - hx, playerPos.z - hz);
+    rotor.rotation.y += dt * 28;
+    // The searchlight cone hangs from the heli down to the player: its apex
+    // sits at the heli, its base opens on the ground below.
+    beam.position.set(0, -POLICE.heliHeight / 2, 0);
+    beam.material.opacity = 0.10 + Math.sin(timeSeconds * 2) * 0.03;
+  }
 
   function wantedCount() {
     return stars;
@@ -28,6 +88,7 @@ export function createPolice(scene, city, rng) {
     stars = 0;
     cleanTimer = 0;
     bustTimer = 0;
+    heli.visible = false;
     for (const car of cars) scene.remove(car.mesh);
     cars.length = 0;
   }
@@ -62,14 +123,16 @@ export function createPolice(scene, city, rng) {
    * One step. Returns an event object the game reacts to: `busted` when the
    * police pin the player, `starFaded` when a star decays away.
    */
-  function step(dt, playerPos, playerSpeed, inCar) {
-    const events = { busted: false, starFaded: false };
+  function step(dt, playerPos, playerSpeed, inCar, timeSeconds = 0) {
+    const events = { busted: false, starFaded: false, rammed: false, rammedCar: false };
     if (stars === 0) {
       sirenOn = false;
+      heli.visible = false;
       if (cars.length) ensureCars(playerPos);
       return events;
     }
     sirenOn = true;
+    stepHeli(dt, playerPos, timeSeconds);
     cleanTimer += dt;
     if (cleanTimer >= WANTED.decaySeconds) {
       cleanTimer = 0;
@@ -99,6 +162,14 @@ export function createPolice(scene, city, rng) {
       car.z = fixed.z;
       car.speed = speed;
       car.sync();
+      // Flashing light bar: red / blue, twice a second, so a chase reads at a glance.
+      if (car.mesh.userData.bar) {
+        car.mesh.userData.bar.material.color.setHex(Math.floor(timeSeconds * 2) % 2 === 0 ? 0xff2a2a : 0x2244ff);
+      }
+      // PIT manoeuvre: ramming the player's car shoves it and slows it down.
+      if (dist < 3.4 && inCar) {
+        events.rammedCar = true;
+      }
       // Ramming the player on foot hurts; ramming their car shakes it.
       if (dist < 2.6 && !inCar) {
         events.rammed = true;
@@ -122,8 +193,10 @@ export function createPolice(scene, city, rng) {
   }
 
   function policePositions() {
-    return cars.map((car) => ({ x: car.x, z: car.z }));
+    const spots = cars.map((car) => ({ x: car.x, z: car.z }));
+    if (heli.visible) spots.push({ x: heli.position.x, z: heli.position.z, heli: true });
+    return spots;
   }
 
-  return { wantedCount, addStars, clearWanted, step, isSirenOn, policePositions, cars };
+  return { wantedCount, addStars, clearWanted, step, isSirenOn, policePositions, heliActive, cars };
 }

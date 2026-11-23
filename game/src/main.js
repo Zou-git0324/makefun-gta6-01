@@ -3,12 +3,12 @@
 // between menu, playing, paused, wasted and busted — and the ?shot= scenes
 // stage a frozen frame of the real game for screenshots.
 
-import { CAR, PALETTE, PLAYER, POLICE, WANTED } from './config.js';
+import { MISSIONS, PALETTE, PLAYER, POLICE, WANTED } from './config.js';
 import { createRandom } from './rng.js';
 import { createInput, ACTION_ATTACK, ACTION_INTERACT, ACTION_MUTE, ACTION_PAUSE } from './input.js';
 import { createAudio } from './audio.js';
 import { buildCity } from './city.js';
-import { Car, randomCarColor } from './vehicles.js';
+import { Car, randomCarColor, randomKind } from './vehicles.js';
 import { createTraffic } from './traffic.js';
 import { createPedestrians } from './pedestrians.js';
 import { createPolice } from './police.js';
@@ -54,7 +54,29 @@ sun.shadow.camera.top = 260;
 sun.shadow.camera.bottom = -260;
 sun.shadow.camera.far = 600;
 scene.add(sun);
-scene.add(new THREE.AmbientLight(0xbfd8ff, 0.85));
+const ambient = new THREE.AmbientLight(0xbfd8ff, 0.85);
+scene.add(ambient);
+const skyDay = new THREE.Color(PALETTE.sky);
+const skyDusk = new THREE.Color(0xff9a5d);
+const skyNight = new THREE.Color(0x0b1020);
+
+// The clock runs 09:00 + 1 game-minute per real second, so a long session
+// slides from morning through dusk into night: sun, sky and fog follow it.
+function updateLighting() {
+  const hour = (9 + timeSeconds / 60) % 24;
+  let day = 1;
+  if (hour >= 18 && hour < 20) day = 1 - (hour - 18) / 2;
+  else if (hour >= 20 || hour < 5) day = 0;
+  else if (hour >= 5 && hour < 7) day = (hour - 5) / 2;
+  sun.intensity = 0.35 + 2.05 * day;
+  ambient.intensity = 0.3 + 0.55 * day;
+  const sky = new THREE.Color();
+  if (day > 0.7) sky.copy(skyDay);
+  else if (day > 0.25) sky.lerpColors(skyDusk, skyDay, (day - 0.25) / 0.45);
+  else sky.lerpColors(skyNight, skyDusk, day / 0.25);
+  scene.background = sky;
+  scene.fog.color.copy(sky);
+}
 
 const city = buildCity(scene, rng);
 const traffic = createTraffic(scene, city, rng);
@@ -110,15 +132,35 @@ const player = {
   moving: false,
 };
 
-// Parked cars the player can take, scattered on the roads.
+// Parked cars the player can take, scattered on the roads — sedans, sports
+// cars and vans, each with its own handling.
 const parkedCars = [];
 for (let i = 0; i < 9; i += 1) {
   const spot = city.randomRoadPoint(rng);
-  const car = new Car(scene, randomCarColor(rng));
+  const car = new Car(scene, randomCarColor(rng), { kind: randomKind(rng) });
   car.place(spot.x, spot.z, rng.pick([0, Math.PI / 2, Math.PI, -Math.PI / 2]));
   parkedCars.push(car);
 }
 const missionCars = [];
+
+// Dead-drop markers: spinning gold boxes at the collect points of a job.
+const collectMarkers = [];
+function showCollect(points) {
+  hideCollect();
+  for (const p of points) {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(1.1, 1.1, 1.1),
+      new THREE.MeshBasicMaterial({ color: 0xffd23f }),
+    );
+    mesh.position.set(p.x, 1.2, p.z);
+    scene.add(mesh);
+    collectMarkers.push(mesh);
+  }
+}
+function hideCollect() {
+  for (const mesh of collectMarkers) scene.remove(mesh);
+  collectMarkers.length = 0;
+}
 
 let screen = 'menu';
 let timeSeconds = 0;
@@ -151,13 +193,19 @@ function setBeacon(x, z, visible) {
 const missions = createMissions({
   setBeacon,
   spawnMissionCar(kind, x, z) {
-    const color = kind === 'taxi' ? PALETTE.taxi : kind === 'coupe' ? 0xd81f2a : 0x3a3f4a;
+    const color = kind === 'taxi' ? PALETTE.taxi : kind === 'coupe' ? 0xd81f2a : kind === 'sports' ? 0xff6a00 : 0x3a3f4a;
     const car = new Car(scene, color, { taxi: kind === 'taxi', kind });
     car.place(x, z, rng.pick([0, Math.PI / 2, Math.PI, -Math.PI / 2]));
     missionCars.push(car);
     return car;
   },
   spawnEnemies(x, z, count) { combat.spawnEnemies(x, z, count); },
+  showCollect(points) { showCollect(points); },
+  collectReached(i) {
+    const mesh = collectMarkers[i];
+    if (mesh) mesh.visible = false;
+  },
+  hideCollect() { hideCollect(); },
   toast(text) { hud.toast(text); },
   dialogue(who, text) { hud.dialogue(who, text); },
   addCash,
@@ -170,7 +218,7 @@ const missions = createMissions({
   },
   onMissionComplete(def, count) {
     saveGame();
-    if (count >= 6) hud.toast('DEBT PAID — Solmar Bay is yours!');
+    if (count >= MISSIONS.total) hud.toast(`ALL ${MISSIONS.total} JOBS DONE — Solmar Bay is yours!`);
   },
 });
 
@@ -301,7 +349,7 @@ function startPlaying(mode) {
   hud.showCrosshair(!player.inCar);
   audio.unlock();
   hud.announce('Playing Solmar Bay.');
-  if (!freeRoam && !missions.isActive() && missions.state().completedCount < 6) {
+  if (!freeRoam && !missions.isActive() && missions.state().completedCount < MISSIONS.total) {
     hud.toast('Find the yellow marker to start your first job.');
   }
 }
@@ -330,6 +378,17 @@ function updateCamera(dt) {
   const cx = target.x - Math.sin(cameraYaw) * dist;
   const cz = target.z - Math.cos(cameraYaw) * dist;
   camera.position.set(cx, height, cz);
+  // Speed widens the view; a crash shakes it.
+  const speedRatio = player.inCar && player.car ? Math.abs(player.car.speed) / player.car.topSpeed() : 0;
+  const wantFov = 62 + speedRatio * 9;
+  if (Math.abs(camera.fov - wantFov) > 0.1) {
+    camera.fov = wantFov;
+    camera.updateProjectionMatrix();
+  }
+  if (player.inCar && player.car && player.car.crashed > 0) {
+    camera.position.x += Math.sin(timeSeconds * 83) * 0.22;
+    camera.position.y += Math.cos(timeSeconds * 71) * 0.18;
+  }
   camera.lookAt(target.x, 1.6, target.z);
   cameraDistance = dist;
 }
@@ -350,7 +409,7 @@ function stepPlayer(dt) {
     }, (x, z, r) => city.collideCircle(x, z, r));
     const moved = Math.hypot(car.x - before.x, car.z - before.z);
     if (car.crashed > 0.2) audio.crash();
-    audio.setEngine(true, Math.abs(car.speed) / CAR.maxSpeed);
+    audio.setEngine(true, Math.abs(car.speed) / car.topSpeed());
     // Running over a pedestrian is a crime the whole street sees.
     const ped = pedestrians.nearest(car.x, car.z, 2.2);
     if (ped && Math.abs(car.speed) > 5) {
@@ -418,7 +477,12 @@ function drawMinimapNow() {
 
 function stepWorld(dt) {
   timeSeconds += dt;
+  updateLighting();
   city.pulseBeacon(timeSeconds);
+  for (const marker of collectMarkers) {
+    marker.rotation.y += dt * 2;
+    marker.position.y = 1.2 + Math.sin(timeSeconds * 3) * 0.15;
+  }
 
   const actions = input.takeActions();
   if (actions & ACTION_MUTE) {
@@ -450,7 +514,7 @@ function stepWorld(dt) {
         const isTraffic = traffic.cars.some((e) => e.car === car);
         enterCar(car, isTraffic);
         if (isTraffic) traffic.removeCar(car);
-      } else if (!missions.isActive() && !freeRoam && missions.state().completedCount < 6) {
+      } else if (!missions.isActive() && !freeRoam && missions.state().completedCount < MISSIONS.total) {
         missions.startNext();
       }
     }
@@ -485,8 +549,13 @@ function stepWorld(dt) {
   const combatDamage = combat.step(dt, player, screen === 'playing');
   if (combatDamage > 0) hurtPlayer(combatDamage, 'beaten');
 
-  const policeEvents = police.step(dt, player, playerSpeed(), player.inCar);
+  const policeEvents = police.step(dt, player, playerSpeed(), player.inCar, timeSeconds);
   if (policeEvents.rammed) hurtPlayer(POLICE.ramDamage, 'rammed');
+  if (policeEvents.rammedCar && player.inCar && player.car) {
+    player.car.speed *= 0.72;
+    player.car.crashed = 0.3;
+    audio.crash();
+  }
   if (policeEvents.busted) busted();
   if (policeEvents.starFaded) hud.toast(`Wanted level ${police.wantedCount()} — lay low`);
   audio.setSiren(police.isSirenOn());
@@ -501,7 +570,7 @@ function stepWorld(dt) {
 
   // No job running: point the beacon at the next job's start, so the player
   // can always find work.
-  if (!missions.isActive() && !freeRoam && missions.state().completedCount < 6) {
+  if (!missions.isActive() && !freeRoam && missions.state().completedCount < MISSIONS.total) {
     const def = missions.currentDef();
     if (def) setBeacon(def.steps[0].x, def.steps[0].z, true);
   }
@@ -510,7 +579,7 @@ function stepWorld(dt) {
   if (!player.inCar) {
     const car = nearestDrivableCar(3.6);
     if (car) hud.prompt(car.kind === 'taxi' ? 'E — Get in the taxi' : 'E — Steal the car');
-    else if (!missions.isActive() && !freeRoam && missions.state().completedCount < 6) hud.prompt('E — Start the next job');
+    else if (!missions.isActive() && !freeRoam && missions.state().completedCount < MISSIONS.total) hud.prompt('E — Start the next job');
     else hud.prompt('');
   } else {
     hud.prompt('E — Get out of the car');
@@ -518,10 +587,23 @@ function stepWorld(dt) {
 
   // HUD refresh.
   const objective = missions.objectiveText();
-  hud.updateObjective(objective.name, objective.text, missions.timerLeft());
+  const mState = missions.state();
+  const progress = missions.isActive()
+    ? `Job ${mState.activeId} of ${MISSIONS.total}`
+    : `Jobs ${mState.completedCount}/${MISSIONS.total}`;
+  const beaconDist = city.beacon.visible
+    ? Math.hypot(player.x - city.beacon.position.x, player.z - city.beacon.position.z)
+    : 0;
+  hud.updateObjective(objective.name, objective.text, missions.timerLeft(), progress, beaconDist);
   hud.updateStats(player.cash, player.health, timeSeconds);
   hud.updateWanted(police.wantedCount());
-  hud.updateSpeed(player.inCar, player.inCar && player.car ? Math.abs(player.car.speed) * 2.2 : 0, player.inCar && player.car ? player.car.speed < -0.5 : false);
+  hud.updateSpeed(
+    player.inCar,
+    player.inCar && player.car ? Math.abs(player.car.speed) * 2.2 : 0,
+    player.inCar && player.car ? player.car.speed < -0.5 : false,
+    player.inCar && player.car ? player.car.kindLabel() : '',
+    player.inCar && player.car ? Math.round(player.car.damage) : 0,
+  );
   drawMinimapNow();
 }
 
@@ -541,6 +623,8 @@ const game = {
   get pedestrians() { return pedestrians; },
   get city() { return city; },
   get timeSeconds() { return timeSeconds; },
+  get sunIntensity() { return sun.intensity; },
+  get skyColor() { return scene.background.getHexString(); },
   setTime(t) { timeSeconds = t; },
   setCamera(yaw, pitch, dist) {
     cameraYaw = yaw;
@@ -582,6 +666,10 @@ const game = {
       cash: player.cash,
       inCar: player.inCar,
       carKind: player.carKind,
+      carDamage: player.inCar && player.car ? Math.round(player.car.damage) : 0,
+      carTopSpeed: player.inCar && player.car ? Math.round(player.car.topSpeed()) : 0,
+      smokePuffs: player.inCar && player.car ? player.car.smoke.filter((p) => p.life > 0).length : 0,
+      heli: police.heliActive(),
       wanted: police.wantedCount(),
       missionActive: missions.isActive(),
       mission: missions.activeMission() ? missions.activeMission().name : null,

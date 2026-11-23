@@ -2,11 +2,19 @@
 // (accelerate, steer, handbrake slide) shared by the player's car, traffic and
 // the police. No physics library — the model is small enough to own.
 
-import { CAR } from './config.js';
+import { CAR, CAR_DAMAGE, CAR_KINDS } from './config.js';
 
 const THREE = window.THREE;
 
 const BODY_COLORS = [0xd84a4a, 0x4a7dd8, 0xe8e8e8, 0x2c2f36, 0x7ab648, 0xd8a04a, 0x8a5ad8, 0x4ad8c8, 0xc8c8c8];
+
+/** The kinds a street car can be; sports cars are rarer than sedans. */
+export function randomKind(rng) {
+  const roll = rng.next();
+  if (roll < 0.22) return 'sports';
+  if (roll < 0.42) return 'van';
+  return 'sedan';
+}
 
 /** Build a car mesh. `opts` picks the paint, taxi sign and police livery. */
 export function makeCarMesh(color, opts = {}) {
@@ -14,15 +22,34 @@ export function makeCarMesh(color, opts = {}) {
   const paint = new THREE.MeshLambertMaterial({ color });
   const glass = new THREE.MeshLambertMaterial({ color: 0x1c2836 });
   const trim = new THREE.MeshLambertMaterial({ color: 0x1a1d22 });
+  const kind = opts.kind || 'sedan';
+  const sporty = kind === 'sports' || kind === 'coupe';
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(2, 0.7, 4.4), paint);
-  body.position.y = 0.55;
+  // Vans stand tall, sports cars sit low with a spoiler; sedans are the middle.
+  const bodyH = kind === 'van' ? 1.1 : sporty ? 0.55 : 0.7;
+  const bodyY = kind === 'van' ? 0.8 : sporty ? 0.48 : 0.55;
+  const bodyL = kind === 'van' ? 4.6 : 4.4;
+  const cabinH = kind === 'van' ? 0.85 : sporty ? 0.45 : 0.6;
+  const cabinY = kind === 'van' ? 1.65 : sporty ? 0.95 : 1.15;
+  const cabinL = kind === 'van' ? 2.8 : sporty ? 2.0 : 2.2;
+  const body = new THREE.Mesh(new THREE.BoxGeometry(2, bodyH, bodyL), paint);
+  body.position.y = bodyY;
   body.castShadow = true;
   group.add(body);
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.6, 2.2), glass);
-  cabin.position.set(0, 1.15, -0.2);
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.7, cabinH, cabinL), glass);
+  cabin.position.set(0, cabinY, -0.2);
   cabin.castShadow = true;
   group.add(cabin);
+  if (sporty) {
+    const spoiler = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.08, 0.4), trim);
+    spoiler.position.set(0, 0.95, -2.1);
+    group.add(spoiler);
+    for (const sx of [-0.8, 0.8]) {
+      const strut = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.25, 0.08), trim);
+      strut.position.set(sx, 0.82, -2.1);
+      group.add(strut);
+    }
+  }
   const bumperF = new THREE.Mesh(new THREE.BoxGeometry(2.05, 0.25, 0.3), trim);
   bumperF.position.set(0, 0.35, 2.2);
   group.add(bumperF);
@@ -53,6 +80,7 @@ export function makeCarMesh(color, opts = {}) {
     );
     bar.position.set(0, 1.55, -0.2);
     group.add(bar);
+    group.userData.bar = bar;
     const stripe = new THREE.Mesh(new THREE.BoxGeometry(2.02, 0.3, 4.42), new THREE.MeshLambertMaterial({ color: 0xffffff }));
     stripe.position.y = 0.62;
     group.add(stripe);
@@ -86,6 +114,7 @@ export class Car {
     this.mesh = makeCarMesh(color, opts);
     this.wheels = this.mesh.userData.wheels;
     scene.add(this.mesh);
+    this.scene = scene;
     this.x = 0;
     this.z = 0;
     this.heading = 0;
@@ -96,7 +125,28 @@ export class Car {
     this.isPolice = !!opts.police;
     this.isTaxi = !!opts.taxi;
     this.kind = opts.kind || 'civilian';
+    this.tune = CAR_KINDS[this.kind] || CAR_KINDS.sedan;
     this.crashed = 0; // seconds of crash shake left
+    this.damage = 0; // 0–100: crashes bend the car, smoke it, slow it down
+    this.smokeTimer = 0;
+    // A small pool of smoke puffs, recycled while the car is hurt.
+    this.smoke = [];
+    const puffGeo = new THREE.BoxGeometry(0.7, 0.7, 0.7);
+    const puffMat = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.45 });
+    for (let i = 0; i < 12; i += 1) {
+      const puff = new THREE.Mesh(puffGeo, puffMat.clone());
+      puff.visible = false;
+      scene.add(puff);
+      this.smoke.push({ mesh: puff, life: 0 });
+    }
+  }
+
+  topSpeed() {
+    return this.tune.topSpeed * (1 - CAR_DAMAGE.maxSpeedLoss * (this.damage / 100));
+  }
+
+  kindLabel() {
+    return this.tune.label;
   }
 
   place(x, z, heading) {
@@ -119,8 +169,9 @@ export class Car {
   }
 
   drive(dt, input, collide) {
-    const grip = input.handbrake ? CAR.handbrakeGrip : CAR.grip;
-    if (input.forward) this.speed += CAR.accel * dt;
+    const tune = this.tune;
+    const grip = input.handbrake ? CAR.handbrakeGrip : tune.grip;
+    if (input.forward) this.speed += tune.accel * dt;
     if (input.back) {
       this.speed -= this.speed > 0.5 ? CAR.brake * dt : CAR.reverseAccel * dt;
     }
@@ -128,7 +179,7 @@ export class Car {
       this.speed -= this.speed * 0.8 * dt;
     }
     if (input.handbrake) this.speed -= this.speed * 1.6 * dt;
-    this.speed = Math.max(-CAR.maxReverse, Math.min(CAR.maxSpeed, this.speed));
+    this.speed = Math.max(-CAR.maxReverse, Math.min(this.topSpeed(), this.speed));
 
     const targetSteer = (input.left ? 1 : 0) - (input.right ? 1 : 0);
     const speedSign = this.speed >= 0 ? 1 : -1;
@@ -143,13 +194,44 @@ export class Car {
     nx = fixed.x;
     nz = fixed.z;
     if (Math.abs(before.x - nx) > 0.01 || Math.abs(before.z - nz) > 0.01) {
-      if (Math.abs(this.speed) > 6) this.crashed = 0.25;
+      if (Math.abs(this.speed) > 6) {
+        this.crashed = 0.25;
+        this.damage = Math.min(100, this.damage + Math.abs(this.speed) * CAR_DAMAGE.crashPerSpeed);
+      }
       this.speed *= 0.4;
     }
     this.x = nx;
     this.z = nz;
     if (this.crashed > 0) this.crashed -= dt;
+    this.stepSmoke(dt);
     this.sync();
     return Math.abs(this.speed);
+  }
+
+  /** Smoke puffs rise from the hood while the car is badly hurt. */
+  stepSmoke(dt) {
+    if (this.damage > CAR_DAMAGE.smokeAt && Math.abs(this.speed) > 1) {
+      this.smokeTimer -= dt;
+      if (this.smokeTimer <= 0) {
+        this.smokeTimer = 0.14;
+        const puff = this.smoke.find((p) => p.life <= 0);
+        if (puff) {
+          const fwd = this.forwardVector();
+          puff.mesh.position.set(this.x + fwd.x * 1.8, 1.1, this.z + fwd.z * 1.8);
+          puff.mesh.visible = true;
+          puff.mesh.material.opacity = 0.5;
+          puff.mesh.scale.set(1, 1, 1);
+          puff.life = 0.9;
+        }
+      }
+    }
+    for (const puff of this.smoke) {
+      if (puff.life <= 0) continue;
+      puff.life -= dt;
+      puff.mesh.position.y += dt * 2.2;
+      puff.mesh.scale.multiplyScalar(1 + dt * 1.6);
+      puff.mesh.material.opacity = Math.max(0, puff.life * 0.55);
+      if (puff.life <= 0) puff.mesh.visible = false;
+    }
   }
 }

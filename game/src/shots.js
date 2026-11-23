@@ -51,8 +51,9 @@ export function stageShot(game, name, ctx) {
     pressKey('KeyE');
     game.advance(1 / 60);
     releaseKey('KeyE');
-    // Three stars on us before the run, so the chase is already happening.
-    game.setWanted(3);
+    // Four stars on us before the run, so the chase — and the police
+    // helicopter overhead — is already happening.
+    game.setWanted(4);
     // Steal the coupe, then run: four seconds of hard driving with the cops closing in.
     holdKey('KeyW', game, 4);
     for (let i = 0; i < 30; i += 1) game.advance(1 / 60);

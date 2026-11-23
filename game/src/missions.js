@@ -84,7 +84,7 @@ const DEFS = [
         type: 'checkpoints',
         points: [
           { x: -150, z: -150 }, { x: 150, z: -150 }, { x: 150, z: 150 },
-          { x: -150, z: 150 }, { x: 0, z: 0 },
+          { x: -150, z: 150 }, { x: 30, z: 30 },
         ],
         timeLimit: 150,
         label: 'Hit all 5 checkpoints before the timer runs out',
@@ -111,6 +111,95 @@ const DEFS = [
       { who: LENA, text: 'Forty grand. Done. The bay never looked this good.' },
     ],
   },
+  {
+    id: 7,
+    name: 'Marina Ambush',
+    reward: 6000,
+    intro: [
+      { who: HARLOW, text: 'The debt is paid, Marlowe — but the bay still owes me. Four of my old rivals are waiting at the south marina with a ledger of names. Bring it to me.' },
+      { who: LENA, text: 'Four of them, one ledger, and a long walk home. Same as always.' },
+    ],
+    steps: [
+      { type: 'goto', x: -150, z: 210, label: 'Go to the south marina', radius: 8 },
+      { type: 'combat', x: -150, z: 210, count: 4, label: 'Deal with the four rivals at the marina' },
+      { type: 'goto', x: -150, z: 210, label: 'Pick up the ledger', radius: 5 },
+      { type: 'goto', x: 150, z: -150, label: 'Deliver the ledger to the northeast corner', radius: 8 },
+    ],
+    outro: [
+      { who: HARLOW, text: 'The ledger. You are not just free, Marlowe — you are useful.' },
+    ],
+  },
+  {
+    id: 8,
+    name: 'The Last Lap',
+    reward: 8000,
+    intro: [
+      { who: DARIO, text: 'One last run to celebrate, sis. Six checkpoints, all over the bay, before the clock dies. Grab any car you like — and make it look easy.' },
+      { who: LENA, text: 'Six checkpoints. One bay. Watch me.' },
+    ],
+    steps: [
+      {
+        type: 'checkpoints',
+        points: [
+          { x: -150, z: -150 }, { x: 150, z: -150 }, { x: 150, z: 150 },
+          { x: -150, z: 150 }, { x: 90, z: -90 }, { x: -90, z: 90 },
+        ],
+        timeLimit: 210,
+        label: 'Hit all 6 checkpoints before the timer runs out',
+      },
+    ],
+    outro: [
+      { who: DARIO, text: 'Six for six. The bay is yours, Vex — every street, every shortcut.' },
+      { who: LENA, text: 'Forty grand, two extra jobs, one city. Done.' },
+    ],
+  },
+  {
+    id: 9,
+    name: 'Dead Drops',
+    reward: 7000,
+    intro: [
+      { who: HARLOW, text: 'Four dead drops, scattered across the bay, each one mine. Collect them all, bring them to the pier, and do not get curious about what is inside.' },
+      { who: LENA, text: 'Four stops, one pier. I can do curious later.' },
+    ],
+    steps: [
+      {
+        type: 'collect',
+        points: [
+          { x: -150, z: -150 }, { x: 150, z: 150 }, { x: 90, z: 90 }, { x: -90, z: -90 },
+        ],
+        label: 'Pick up the 4 dead drops around the bay',
+      },
+      { type: 'goto', x: 0, z: 292, label: 'Deliver the drops to the end of the pier', radius: 5 },
+    ],
+    outro: [
+      { who: HARLOW, text: 'All four. You collect almost as well as you drive, Marlowe.' },
+    ],
+  },
+  {
+    id: 10,
+    name: "Harlow's Farewell",
+    reward: 12000,
+    intro: [
+      { who: HARLOW, text: 'One last run, Marlowe — my farewell gift. A sports car is parked in the southwest. Take it, run six checkpoints, and make it look easy. The whole department will be watching.' },
+      { who: LENA, text: 'Six checkpoints, one sports car, the whole bay watching. Let us go.' },
+    ],
+    steps: [
+      { type: 'steal', kind: 'sports', x: -150, z: 150, label: 'Steal the sports car in the southwest', wantedOnSteal: 3 },
+      {
+        type: 'checkpoints',
+        points: [
+          { x: -150, z: -150 }, { x: 150, z: -150 }, { x: 150, z: 150 },
+          { x: -150, z: 150 }, { x: 90, z: -90 }, { x: -90, z: 90 },
+        ],
+        timeLimit: 240,
+        label: 'Hit all 6 checkpoints before the timer runs out',
+      },
+    ],
+    outro: [
+      { who: HARLOW, text: 'Ten jobs. You paid your brother out and then some, Marlowe. Solmar Bay remembers drivers like you.' },
+      { who: LENA, text: 'Ten for ten. The bay is mine now — every street, every shortcut.' },
+    ],
+  },
 ];
 
 export function createMissions(hooks) {
@@ -129,7 +218,8 @@ export function createMissions(hooks) {
 
   function objectiveText() {
     if (!active) {
-      if (completedCount >= MISSIONS.total) return { name: 'DEBT PAID', text: 'Solmar Bay is yours. Free roam — the city never sleeps.' };
+      if (completedCount >= MISSIONS.total) return { name: 'BAY LEGEND', text: 'All 10 jobs done. Solmar Bay is yours. Free roam — the city never sleeps.' };
+      if (completedCount >= 6) return { name: 'DEBT PAID', text: `The $40,000 is paid. ${completedCount - 6} of 4 extra jobs done — find the yellow marker for the next one.` };
       const next = currentDef();
       return { name: 'FREE ROAM', text: next ? `Find the yellow marker to start "${next.name}" ($${next.reward.toLocaleString()}).` : 'Free roam.' };
     }
@@ -142,6 +232,9 @@ export function createMissions(hooks) {
     if (!step) { hooks.setBeacon(0, 0, false); return; }
     if (step.type === 'checkpoints') {
       const point = step.points[active.checkpointIndex] || step.points[0];
+      hooks.setBeacon(point.x, point.z, true);
+    } else if (step.type === 'collect') {
+      const point = step.points[active.collected] || step.points[0];
       hooks.setBeacon(point.x, point.z, true);
     } else if (step.x !== undefined) {
       hooks.setBeacon(step.x, step.z, true);
@@ -158,15 +251,32 @@ export function createMissions(hooks) {
     }
   }
 
+  // Arm a step's own state: the checkpoints clock, the collect markers.
+  // Both the first step (startMission) and later steps (advanceStep) go
+  // through here — before this fix a mission whose first step was a timed
+  // checkpoint run started with timer 0 and failed on its first frame.
+  function setupStep(step) {
+    if (!step) return;
+    if (step.type === 'checkpoints') {
+      active.checkpointIndex = 0;
+      active.timer = step.timeLimit;
+    }
+    if (step.type === 'collect') {
+      active.collected = 0;
+      if (hooks.showCollect) hooks.showCollect(step.points);
+    }
+  }
+
   function startMission(i) {
     const def = DEFS[i];
     if (!def) return false;
-    active = { def, stepIndex: 0, timer: 0, checkpointIndex: 0 };
+    active = { def, stepIndex: 0, timer: 0, checkpointIndex: 0, collected: 0 };
     index = i;
     const step = currentStep();
     if (step && (step.type === 'getIn' || step.type === 'steal')) {
       hooks.spawnMissionCar(step.kind, step.x, step.z);
     }
+    setupStep(step);
     showIntro(def);
     hooks.toast(`${def.name} — $${def.reward.toLocaleString()}`);
     hooks.sound('mission');
@@ -192,10 +302,7 @@ export function createMissions(hooks) {
     if (step.type === 'combat') {
       hooks.spawnEnemies(step.x, step.z, step.count);
     }
-    if (step.type === 'checkpoints') {
-      active.checkpointIndex = 0;
-      active.timer = step.timeLimit;
-    }
+    setupStep(step);
     moveBeacon();
   }
 
@@ -214,6 +321,7 @@ export function createMissions(hooks) {
       delay += 4200;
     }
     hooks.onMissionComplete(def, completedCount);
+    if (hooks.hideCollect) hooks.hideCollect();
   }
 
   function failMission(reason) {
@@ -221,6 +329,7 @@ export function createMissions(hooks) {
     hooks.sound('busted');
     active = null;
     hooks.setBeacon(0, 0, false);
+    if (hooks.hideCollect) hooks.hideCollect();
   }
 
   /**
@@ -245,7 +354,22 @@ export function createMissions(hooks) {
         moveBeacon();
       }
       if (active.timer <= 0) {
-        failMission('Out of time — the night shift slipped away. Try again at the marker.');
+        failMission('Out of time — try again at the marker.');
+      }
+      return;
+    }
+    if (step.type === 'collect') {
+      // Walk or drive over each drop: the beacon points at the next one.
+      const point = step.points[active.collected];
+      const dx = world.x - point.x;
+      const dz = world.z - point.z;
+      if (Math.sqrt(dx * dx + dz * dz) < 4) {
+        if (hooks.collectReached) hooks.collectReached(active.collected);
+        active.collected += 1;
+        hooks.sound('pickup');
+        hooks.toast(`Dead drop ${active.collected} of ${step.points.length}`);
+        if (active.collected >= step.points.length) { advanceStep(); return; }
+        moveBeacon();
       }
       return;
     }

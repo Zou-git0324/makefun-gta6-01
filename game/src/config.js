@@ -35,6 +35,23 @@ export const CAR = {
   handbrakeGrip: 2.2,
 };
 
+// Per-kind handling: sports cars are quick but twitchy, vans are slow and
+// planted, sedans and taxis sit in the middle. Every parked and traffic car
+// rolls one of these kinds; missions ask for a kind by name.
+export const CAR_KINDS = {
+  sedan: { accel: 16, topSpeed: 34, grip: 6.5, label: 'SEDAN' },
+  sports: { accel: 21, topSpeed: 43, grip: 5.6, label: 'SPORTS' },
+  coupe: { accel: 21, topSpeed: 43, grip: 5.6, label: 'COUPE' },
+  van: { accel: 11, topSpeed: 26, grip: 7.6, label: 'VAN' },
+  taxi: { accel: 16, topSpeed: 34, grip: 6.5, label: 'TAXI' },
+};
+
+export const CAR_DAMAGE = {
+  crashPerSpeed: 0.9, // damage points per unit of impact speed
+  smokeAt: 50, // damage above this smokes
+  maxSpeedLoss: 0.5, // a wrecked car loses this much of its top speed
+};
+
 export const TRAFFIC = { count: 14, speedMin: 7, speedMax: 11 };
 export const PEDESTRIANS = { count: 26, speedMin: 1.1, speedMax: 2.1 };
 
@@ -55,9 +72,12 @@ export const POLICE = {
   maxCars: 6,
   speed: 30,
   ramDamage: 6,
+  heliAtStars: 4, // a helicopter joins the chase at this wanted level
+  heliHeight: 42,
+  heliOrbit: 26,
 };
 
-export const MISSIONS = { total: 6, debtTarget: 40000 };
+export const MISSIONS = { total: 10, debtTarget: 40000 };
 
 export const SAVE_KEY = 'solmar-bay.save.v1';
 
