@@ -3,133 +3,158 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="data:,">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23ffd23e'/%3E%3C/svg%3E">
 <title>Solmar Bay — Neon Tide</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1b2a;
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #eef2f6; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0e1a;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif; color: #eef2ff; }
   #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
-  .panel { position: fixed; background: rgba(13, 27, 42, 0.72); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 10px; padding: 10px 14px; backdrop-filter: blur(4px); }
-  .label { font-size: 11px; letter-spacing: 2px; color: #9fb2c8; text-transform: uppercase; }
-  /* top-left: place, cash, health */
-  #stats { top: 16px; left: 16px; min-width: 190px; }
-  #stats .cash { font-size: 26px; font-weight: 700; color: #37d67a; line-height: 1.15; }
-  #healthbar { height: 8px; background: rgba(255,255,255,0.15); border-radius: 4px; margin: 6px 0 4px; overflow: hidden; }
-  #healthfill { height: 100%; width: 100%; background: #ff7a59; border-radius: 4px; }
-  #stats .sub { font-size: 11px; letter-spacing: 1.5px; color: #c8d4e2; }
-  /* top-right: wanted stars */
-  #wanted { top: 16px; right: 16px; font-size: 26px; letter-spacing: 4px; color: #8a93a6; padding: 6px 14px; }
-  /* top-centre: current job */
-  #objective { top: 16px; left: 50%; transform: translateX(-50%); text-align: center; min-width: 320px; max-width: 60vw; }
-  #missionName { font-size: 15px; font-weight: 700; letter-spacing: 1px; color: #ffd23f; }
-  #missionText { font-size: 13px; color: #dfe8f2; margin-top: 2px; }
-  /* bottom-right: speedometer */
-  #speedo { bottom: 16px; right: 16px; text-align: right; min-width: 150px; }
-  #speedo .mph { font-size: 34px; font-weight: 700; line-height: 1; }
-  #speedo .unit { font-size: 11px; letter-spacing: 2px; color: #9fb2c8; margin-top: 2px; }
-  #damagebar { height: 7px; background: rgba(255,255,255,0.15); border-radius: 4px; margin-top: 8px; overflow: hidden; }
-  #damagefill { height: 100%; width: 0%; background: #ffb02e; }
-  #damageLabel { font-size: 10px; letter-spacing: 2px; color: #9fb2c8; margin-top: 3px; }
-  /* bottom-left: minimap */
-  #minimap { position: fixed; left: 16px; bottom: 16px; width: 210px; height: 210px;
-    border-radius: 50%; border: 2px solid rgba(255,255,255,0.25); background: #0d1b2a; }
-  /* centre-bottom: toast, prompt, dialogue */
-  #toast { bottom: 110px; left: 50%; transform: translateX(-50%); font-size: 15px; font-weight: 600;
-    display: none; white-space: nowrap; }
-  #toast.big { font-size: 26px; color: #ffd23f; bottom: 42%; }
-  #prompt { bottom: 200px; left: 50%; transform: translateX(-50%); font-size: 14px; display: none; }
-  #dialogue { bottom: 250px; left: 50%; transform: translateX(-50%); width: 620px; max-width: 80vw;
-    font-size: 15px; line-height: 1.45; display: none; }
-  #dialogue b { color: #ffd23f; }
-  #crosshair { position: fixed; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px;
-    display: none; pointer-events: none; }
-  #crosshair::before, #crosshair::after { content: ''; position: absolute; background: #fff; opacity: 0.9; }
-  #crosshair::before { left: 10px; top: 0; width: 2px; height: 22px; }
-  #crosshair::after { top: 10px; left: 0; height: 2px; width: 22px; }
-  /* menu + pause cards */
-  #menu, #paused { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-    background: rgba(5, 12, 20, 0.55); z-index: 10; }
+
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #stats { position: absolute; top: 14px; left: 14px; background: rgba(8, 12, 24, 0.72);
+    border: 1px solid rgba(255, 210, 62, 0.45); border-radius: 8px; padding: 10px 14px; min-width: 210px; }
+  #stats .label { font-size: 11px; letter-spacing: 2px; color: #ffd23e; font-weight: 700; }
+  #clock { font-size: 20px; font-weight: 700; margin-top: 2px; }
+  #cash { font-size: 22px; font-weight: 800; color: #7dff9a; margin-top: 2px; }
+  #healthbar { height: 8px; background: rgba(255, 255, 255, 0.15); border-radius: 4px;
+    margin-top: 8px; overflow: hidden; }
+  #healthfill { height: 100%; width: 100%; background: #ff5d73; border-radius: 4px; }
+  #stats .sub { font-size: 11px; letter-spacing: 1px; color: #b9c4e0; margin-top: 6px; }
+
+  #wanted { position: absolute; top: 14px; right: 14px; font-size: 30px; letter-spacing: 4px;
+    color: #ffd23e; text-shadow: 0 0 12px rgba(255, 210, 62, 0.6); }
+  #wanted .lit { color: #ffd23e; }
+  #wanted .dim { color: rgba(255, 255, 255, 0.25); }
+
+  #objective { position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    background: rgba(8, 12, 24, 0.72); border: 1px solid rgba(126, 180, 255, 0.4);
+    border-radius: 8px; padding: 8px 16px; text-align: center; max-width: 46vw; }
+  #missionName { font-size: 13px; font-weight: 800; letter-spacing: 2px; color: #7eb4ff; }
+  #missionText { font-size: 13px; color: #eef2ff; margin-top: 2px; }
+
+  #speedo { position: absolute; right: 14px; bottom: 14px; background: rgba(8, 12, 24, 0.72);
+    border: 1px solid rgba(255, 210, 62, 0.45); border-radius: 8px; padding: 8px 14px; text-align: right; }
+  #mphNum { font-size: 30px; font-weight: 800; line-height: 1; }
+  #speedKind { font-size: 11px; letter-spacing: 2px; color: #b9c4e0; margin-top: 2px; }
+  #damagebar { height: 6px; background: rgba(255, 255, 255, 0.15); border-radius: 3px;
+    margin-top: 6px; overflow: hidden; }
+  #damagefill { height: 100%; width: 0%; background: #ff8a3d; border-radius: 3px; }
+  #damageLabel { font-size: 10px; letter-spacing: 1px; color: #ffb37a; margin-top: 3px; }
+
+  #minimap { position: absolute; left: 14px; bottom: 14px; border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.35); background: rgba(8, 12, 24, 0.6); }
+  #toast { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%);
+    background: rgba(8, 12, 24, 0.85); border: 1px solid rgba(255, 210, 62, 0.6);
+    color: #ffd23e; font-weight: 700; font-size: 15px; padding: 10px 18px; border-radius: 8px;
+    opacity: 0; transition: opacity 0.25s; text-align: center; max-width: 82vw; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px;
+    transform: translate(-50%, -50%); display: none; }
+  #crosshair::before, #crosshair::after { content: ""; position: absolute; background: #fff; }
+  #crosshair::before { left: 8px; top: 0; width: 2px; height: 18px; }
+  #crosshair::after { left: 0; top: 8px; width: 18px; height: 2px; }
+  #prompt { position: absolute; left: 50%; bottom: 150px; transform: translateX(-50%);
+    font-size: 14px; font-weight: 600; color: #fff; text-shadow: 0 1px 4px #000; display: none; }
+  #dialogue { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%);
+    width: min(680px, 90vw); background: rgba(8, 12, 24, 0.88); border: 1px solid rgba(126, 180, 255, 0.5);
+    border-radius: 10px; padding: 14px 18px; display: none; cursor: pointer; }
+  #dialogue .who { font-size: 12px; font-weight: 800; letter-spacing: 2px; color: #ffd23e; }
+  #dialogue .line { font-size: 15px; margin-top: 4px; line-height: 1.45; }
+  #dialogue .next { font-size: 11px; color: #b9c4e0; margin-top: 6px; text-align: right; }
+
+  #menu, #paused { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center;
+    justify-content: center; background: rgba(5, 8, 18, 0.72); }
   #paused { display: none; }
-  .card { width: 620px; max-width: 92vw; max-height: 92vh; overflow: auto; background: rgba(13, 27, 42, 0.92);
-    border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 26px 34px; text-align: center; }
-  .card h1 { font-size: 40px; letter-spacing: 6px; color: #ffd23f; }
-  .card h2 { font-size: 13px; letter-spacing: 4px; color: #9fb2c8; margin: 6px 0 18px; font-weight: 600; }
-  .card p.story { font-size: 15px; line-height: 1.6; color: #dfe8f2; text-align: left; }
-  .card .controls { margin: 20px 0; text-align: left; font-size: 14px; line-height: 1.9; color: #c8d4e2; }
-  .card .controls b { color: #fff; background: rgba(255,255,255,0.12); border-radius: 4px; padding: 1px 7px;
-    font-family: monospace; font-size: 13px; }
-  .card button { display: block; width: 100%; margin-top: 10px; padding: 13px; font-size: 16px; font-weight: 700;
-    letter-spacing: 2px; color: #0d1b2a; background: #ffd23f; border: none; border-radius: 8px; cursor: pointer; }
-  .card button:hover { background: #ffe06e; }
-  .card button.ghost { background: transparent; color: #eef2f6; border: 1px solid rgba(255,255,255,0.35); }
-  .card button.ghost:hover { background: rgba(255,255,255,0.1); }
-  .card .fine { margin-top: 18px; font-size: 11px; line-height: 1.5; color: #7d8aa0; }
-  #hud { position: fixed; inset: 0; pointer-events: none; }
-  #hud button { pointer-events: auto; }
+  .card { width: min(620px, 92vw); max-height: 92vh; overflow-y: auto; background: #101736;
+    border: 1px solid rgba(255, 210, 62, 0.5); border-radius: 14px; padding: 28px 32px;
+    box-shadow: 0 0 60px rgba(255, 210, 62, 0.15); text-align: center; }
+  .card h1 { font-size: 44px; letter-spacing: 6px; color: #ffd23e;
+    text-shadow: 0 0 24px rgba(255, 210, 62, 0.55); }
+  .card h2 { font-size: 13px; letter-spacing: 4px; color: #7eb4ff; margin-top: 6px; font-weight: 700; }
+  .card .story { font-size: 15px; line-height: 1.6; color: #dfe6ff; margin-top: 16px; text-align: left; }
+  .card .controls { font-size: 13px; line-height: 1.9; color: #b9c4e0; margin-top: 16px; text-align: left;
+    border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 12px; }
+  .card .controls b { color: #fff; }
+  #missionList { margin-top: 16px; text-align: left; border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-top: 12px; }
+  #missionList .job { display: flex; justify-content: space-between; gap: 12px; font-size: 13px;
+    padding: 3px 0; color: #dfe6ff; }
+  #missionList .job.done { color: #7dff9a; }
+  #missionList .job .reward { color: #ffd23e; font-weight: 700; white-space: nowrap; }
+  #jobsDone { margin-top: 10px; font-size: 13px; font-weight: 800; letter-spacing: 2px; color: #7dff9a; }
+  .btn { display: inline-block; pointer-events: auto; cursor: pointer; border: none; border-radius: 8px;
+    padding: 12px 26px; font-size: 15px; font-weight: 800; letter-spacing: 2px; margin: 18px 6px 0;
+    background: #ffd23e; color: #1a1400; }
+  .btn:hover { filter: brightness(1.1); }
+  .btn.secondary { background: transparent; border: 1px solid #7eb4ff; color: #7eb4ff; }
+  .card .fine { font-size: 11px; color: #8a94b8; margin-top: 18px; line-height: 1.5; }
+  #paused .card h1 { font-size: 32px; letter-spacing: 4px; }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
+
 <div id="hud">
-  <div id="stats" class="panel">
-    <div class="label">Solmar Bay · <span id="clock">09:00</span></div>
-    <div class="cash" id="cash">$250</div>
+  <div id="stats">
+    <div class="label">SOLMAR BAY</div>
+    <div id="clock">09:00</div>
+    <div id="cash">$250</div>
     <div id="healthbar"><div id="healthfill"></div></div>
     <div class="sub">HEALTH · PISTOL ∞</div>
   </div>
-  <div id="wanted" class="panel">☆☆☆☆☆</div>
-  <div id="objective" class="panel">
-    <div id="missionName" class="mname">FREE ROAM</div>
-    <div id="missionText" class="mtext">Find the yellow marker to start a job.</div>
+  <div id="wanted"><span class="dim">☆☆☆☆☆</span></div>
+  <div id="objective">
+    <div id="missionName">FREE ROAM</div>
+    <div id="missionText">Explore Solmar Bay. Walk up to a glowing beacon to start the next job.</div>
   </div>
-  <div id="speedo" class="panel" style="display:none">
-    <div class="mph" id="mphNum">0</div>
-    <div class="unit" id="speedKind">MPH · D · SEDAN</div>
+  <div id="speedo">
+    <div id="mphNum">0</div>
+    <div id="speedKind">MPH · D · SEDAN</div>
     <div id="damagebar"><div id="damagefill"></div></div>
-    <div class="unit" id="damageLabel">DAMAGE 0%</div>
+    <div id="damageLabel">DAMAGE 0%</div>
   </div>
   <canvas id="minimap" width="210" height="210"></canvas>
-  <div id="toast" class="panel"></div>
+  <div id="toast"></div>
   <div id="crosshair"></div>
-  <div id="prompt" class="panel"></div>
-  <div id="dialogue" class="panel"></div>
+  <div id="prompt"></div>
+  <div id="dialogue"><div class="who"></div><div class="line"></div><div class="next">CLICK TO CONTINUE ▸</div></div>
 </div>
 
 <div id="menu">
-  <div class="card panel">
+  <div class="card">
     <h1>SOLMAR BAY</h1>
     <h2>NEON TIDE · AN OPEN-WORLD CRIME STORY</h2>
-    <p class="story">You are Lena &ldquo;Vex&rdquo; Marlowe, a courier who just burned her last
-    bridge in Solmar Bay — a sun-soaked port city of boardwalks, glass towers and bad decisions.
-    Her brother Dario owes $40,000 to the Harlow crew, and the only way out is through the
-    city&rsquo;s jobs: drive, deliver, steal, fight — and stay ahead of the Solmar Bay Police
-    Department. Ten jobs. One debt. No way back but forward.</p>
+    <p class="story">You are Lena "Vex" Marlowe, a courier who just burned her last bridge in
+    Solmar Bay — a neon city of palm-lined avenues, marina deals, and cops who never
+    sleep. Her brother Dario owes $40,000 to the Harlow crew. Eleven jobs. One debt.
+    No way back but forward.</p>
     <div class="controls">
-      <b>W A S D</b> — move / drive<br>
-      <b>Mouse drag</b> — look around<br>
-      <b>E</b> — enter / steal car, exit car<br>
-      <b>F / Click</b> — punch / shoot<br>
-      <b>Shift</b> — sprint<br>
-      <b>Space</b> — handbrake (in car)<br>
-      <b>P</b> — pause &amp; save<br>
-      <b>M</b> — mute sound
+      <b>W A S D</b> move / drive &nbsp;·&nbsp; <b>Mouse drag</b> look<br>
+      <b>E</b> enter / steal car &nbsp;·&nbsp; <b>F / Click</b> punch / shoot<br>
+      <b>Shift</b> sprint &nbsp;·&nbsp; <b>Space</b> handbrake<br>
+      <b>P</b> pause &amp; save &nbsp;·&nbsp; <b>M</b> mute
     </div>
-    <button id="btn-start">START STORY</button>
-    <button id="btn-continue" class="ghost" style="display:none">CONTINUE</button>
-    <button id="btn-free" class="ghost">FREE ROAM</button>
-    <p class="fine">A wholly original game — Solmar Bay and everyone in it are invented.
-    No art, names or music are taken from any commercial game. It runs entirely offline.</p>
+    <div id="missionList"></div>
+    <div id="jobsDone">JOBS DONE 0/11</div>
+    <div>
+      <button class="btn" id="btn-start">START STORY</button>
+      <button class="btn secondary" id="btn-continue" style="display:none">CONTINUE</button>
+      <button class="btn secondary" id="btn-free">FREE ROAM</button>
+    </div>
+    <p class="fine">An open-world crime story. A fan-made tribute — not affiliated with
+    Rockstar Games or Take-Two Interactive. Runs entirely in your browser; no downloads,
+    no accounts, no network calls.</p>
   </div>
 </div>
 
 <div id="paused">
-  <div class="card panel">
+  <div class="card">
     <h1>PAUSED</h1>
-    <h2>TAKE A BREATHER — THE BAY WILL WAIT</h2>
-    <button id="btn-resume">RESUME</button>
-    <button id="btn-quit" class="ghost">SAVE &amp; QUIT TO MENU</button>
+    <p class="story" style="text-align:center">Your progress has been saved.</p>
+    <div>
+      <button class="btn" id="btn-resume">RESUME</button>
+      <button class="btn secondary" id="btn-quit">SAVE &amp; QUIT TO MENU</button>
+    </div>
   </div>
 </div>
 
