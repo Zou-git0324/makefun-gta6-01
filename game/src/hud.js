@@ -1,18 +1,15 @@
-// HUD — every panel on screen, and the minimap.
-//
-// The HUD owns the DOM and nothing else. main.js tells it what to show;
-// it never reads game state on its own. All the numbers it renders come
-// in through its methods, so the panels stay honest about the game.
+// Solmar Bay — HUD: every panel the player reads, the menu job list and
+// the minimap. All DOM lookups happen once here; every method is defensive
+// about a missing element so a panel can never break the game loop.
 
 export function createHud() {
   const $ = (id) => document.getElementById(id);
   const els = {
-    stats: $('stats'),
     clock: $('clock'),
     cash: $('cash'),
     healthfill: $('healthfill'),
+    jobs: $('jobs'),
     wanted: $('wanted'),
-    objective: $('objective'),
     missionName: $('missionName'),
     missionText: $('missionText'),
     speedo: $('speedo'),
@@ -20,73 +17,95 @@ export function createHud() {
     speedKind: $('speedKind'),
     damagefill: $('damagefill'),
     damageLabel: $('damageLabel'),
+    minimap: $('minimap'),
     toast: $('toast'),
     crosshair: $('crosshair'),
     prompt: $('prompt'),
     dialogue: $('dialogue'),
     menu: $('menu'),
+    missionList: $('missionList'),
+    jobsDone: $('jobsDone'),
+    btnContinue: $('btn-continue'),
     paused: $('paused'),
-    continueBtn: $('btn-continue'),
   };
-  const map = $('minimap');
-  const mctx = map.getContext('2d');
 
   let toastTimer = 0;
   let dialogueTimer = 0;
-  let announceTimer = 0;
+  let dialogueLines = [];
+  let dialogueIndex = 0;
 
-  function show(el, on) {
-    if (el) el.style.display = on ? '' : 'none';
+  function toast(text, ms) {
+    if (!els.toast) return;
+    els.toast.textContent = text;
+    els.toast.style.display = 'block';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      els.toast.style.display = 'none';
+    }, ms || 2500);
   }
 
-  // A short message at the bottom of the screen. A big one — an
-  // announcement — borrows the same box with a bigger style.
-  function toast(msg, big) {
-    const el = els.toast;
-    if (!el) return;
-    el.textContent = msg;
-    el.classList.toggle('big', !!big);
-    show(el, true);
-    window.clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => show(el, false), big ? 3200 : 2400);
+  function announce(text) {
+    toast(text, 4000);
   }
 
-  function announce(msg) {
-    toast(msg, true);
-    window.clearTimeout(announceTimer);
-    announceTimer = window.setTimeout(() => show(els.toast, false), 3200);
+  function showDialogueLine() {
+    if (!els.dialogue) return;
+    if (dialogueIndex >= dialogueLines.length) {
+      els.dialogue.style.display = 'none';
+      dialogueLines = [];
+      return;
+    }
+    const line = dialogueLines[dialogueIndex];
+    els.dialogue.innerHTML = '';
+    const who = document.createElement('b');
+    who.textContent = line.who + ': ';
+    const text = document.createElement('span');
+    text.textContent = line.text;
+    els.dialogue.appendChild(who);
+    els.dialogue.appendChild(text);
+    els.dialogue.style.display = 'block';
+    clearTimeout(dialogueTimer);
+    dialogueTimer = setTimeout(() => {
+      dialogueIndex += 1;
+      showDialogueLine();
+    }, 4500);
   }
 
-  function dialogue(who, text) {
-    const el = els.dialogue;
-    if (!el) return;
-    el.innerHTML = '';
-    const b = document.createElement('b');
-    b.textContent = who + ': ';
-    el.appendChild(b);
-    el.appendChild(document.createTextNode(text));
-    show(el, true);
-    window.clearTimeout(dialogueTimer);
-    dialogueTimer = window.setTimeout(() => show(el, false), 4600);
+  function dialogue(lines) {
+    if (!lines || !lines.length) return;
+    dialogueLines = lines.slice();
+    dialogueIndex = 0;
+    showDialogueLine();
+  }
+
+  if (els.dialogue) {
+    els.dialogue.addEventListener('click', () => {
+      clearTimeout(dialogueTimer);
+      dialogueIndex += 1;
+      showDialogueLine();
+    });
   }
 
   function prompt(text) {
-    const el = els.prompt;
-    if (!el) return;
+    if (!els.prompt) return;
     if (!text) {
-      show(el, false);
+      els.prompt.style.display = 'none';
       return;
     }
-    el.textContent = text;
-    show(el, true);
+    els.prompt.textContent = text;
+    els.prompt.style.display = 'block';
   }
 
-  function updateStats(cash, health, clockText) {
-    if (els.clock) els.clock.textContent = clockText;
-    if (els.cash) els.cash.textContent = '$' + cash;
-    if (els.healthfill) {
-      els.healthfill.style.width = Math.max(0, Math.min(100, health)) + '%';
-      els.healthfill.style.background = health < 30 ? '#e33' : '#ff7a59';
+  function updateStats(s) {
+    if (els.clock && s.time !== undefined) els.clock.textContent = s.time;
+    if (els.cash && s.cash !== undefined) els.cash.textContent = '$' + Math.floor(s.cash).toLocaleString('en-US');
+    if (els.healthfill && s.health !== undefined) {
+      const h = Math.max(0, Math.min(100, s.health));
+      els.healthfill.style.width = h + '%';
+      els.healthfill.style.background = h > 50 ? '#7ee787' : h > 25 ? '#ffb454' : '#ff7a59';
+    }
+    if (els.jobs && s.jobsDone !== undefined && s.jobsTotal !== undefined) {
+      els.jobs.textContent = 'JOBS ' + s.jobsDone + '/' + s.jobsTotal;
     }
   }
 
@@ -95,152 +114,175 @@ export function createHud() {
     let out = '';
     for (let i = 0; i < 5; i++) out += i < stars ? '★' : '☆';
     els.wanted.textContent = out;
-    els.wanted.style.color = stars > 0 ? '#ffd23f' : '#8a93a6';
+    els.wanted.style.color = stars === 0 ? '#8a93a6' : stars < 3 ? '#ffd23e' : '#ff5a4e';
   }
 
-  function updateObjective(name, text, timerSeconds) {
-    if (els.missionName) els.missionName.textContent = name;
-    if (els.missionText) {
-      let line = text;
-      if (timerSeconds > 0) {
-        const m = Math.floor(timerSeconds / 60);
-        const s = Math.floor(timerSeconds % 60);
-        line += '  ·  ' + m + ':' + String(s).padStart(2, '0');
-      }
-      els.missionText.textContent = line;
-    }
+  function updateObjective(o) {
+    if (!o) return;
+    if (els.missionName) els.missionName.textContent = o.name || '';
+    if (els.missionText) els.missionText.textContent = o.text || '';
   }
 
-  // Speed in mph, the kind of car, and how hurt it is. Pass null for the
-  // kind when Lena is on foot and the whole dial hides.
-  function updateSpeed(mph, kindLabel, damage) {
+  function updateSpeed(car) {
     if (!els.speedo) return;
-    if (!kindLabel) {
-      show(els.speedo, false);
+    if (!car) {
+      els.speedo.style.display = 'none';
       return;
     }
-    show(els.speedo, true);
-    if (els.mphNum) els.mphNum.textContent = String(Math.round(mph));
-    if (els.speedKind) els.speedKind.textContent = 'MPH · D · ' + kindLabel.toUpperCase();
-    if (els.damagefill) {
-      els.damagefill.style.width = Math.max(0, Math.min(100, damage)) + '%';
-      els.damagefill.style.background = damage > 50 ? '#e33' : '#ffb02e';
+    els.speedo.style.display = 'block';
+    const mph = Math.round(Math.abs(car.speed || 0) * 2.237);
+    if (els.mphNum) els.mphNum.textContent = String(mph);
+    const gear = (car.speed || 0) < -0.5 ? 'R' : 'D';
+    const label = (car.tune && car.tune.label) || (car.kind ? String(car.kind) : '');
+    if (els.speedKind) els.speedKind.textContent = 'MPH · ' + gear + ' · ' + label.toUpperCase();
+    const dmg = Math.round(car.damage || 0);
+    if (els.damagefill) els.damagefill.style.width = dmg + '%';
+    if (els.damageLabel) els.damageLabel.textContent = 'DAMAGE ' + dmg + '%';
+  }
+
+  function showCrosshair(show) {
+    if (els.crosshair) els.crosshair.style.display = show ? 'block' : 'none';
+  }
+
+  function showMenu(show, info) {
+    if (!els.menu) return;
+    els.menu.style.display = show ? 'flex' : 'none';
+    if (!show || !info) return;
+    if (els.btnContinue) els.btnContinue.style.display = info.hasSave ? 'block' : 'none';
+    if (els.jobsDone && info.completedIds) {
+      els.jobsDone.textContent = 'JOBS DONE ' + info.completedIds.length + '/' + (info.defs ? info.defs.length : 0);
     }
-    if (els.damageLabel) {
-      els.damageLabel.textContent = 'DAMAGE ' + Math.round(damage) + '%';
-      els.damageLabel.style.color = damage > 50 ? '#ff6b5e' : '#9fb2c8';
+    if (els.missionList && info.defs) {
+      els.missionList.innerHTML = '';
+      info.defs.forEach((def) => {
+        const done = info.completedIds && info.completedIds.includes(def.id);
+        const row = document.createElement('div');
+        row.className = 'job' + (done ? ' done' : '');
+        const mark = document.createElement('span');
+        mark.className = 'job-mark';
+        mark.textContent = done ? '✓' : String(def.id).padStart(2, '0');
+        const name = document.createElement('span');
+        name.className = 'job-name';
+        name.textContent = def.name;
+        const reward = document.createElement('span');
+        reward.className = 'job-reward';
+        reward.textContent = '$' + def.reward.toLocaleString('en-US');
+        row.appendChild(mark);
+        row.appendChild(name);
+        row.appendChild(reward);
+        els.missionList.appendChild(row);
+      });
     }
   }
 
-  function showCrosshair(on) {
-    show(els.crosshair, on);
+  function showPaused(show) {
+    if (els.paused) els.paused.style.display = show ? 'flex' : 'none';
   }
 
-  function showMenu(on, hasSave) {
-    show(els.menu, on);
-    if (els.continueBtn) show(els.continueBtn, !!hasSave);
-  }
-
-  function showPaused(on) {
-    show(els.paused, on);
-  }
-
-  // The round minimap: sea at the bottom, the road grid, and one dot per
-  // thing that matters — Lena in yellow, the beacon pulsing, police in
-  // blue, the helicopter ringed in white, enemies in red, dead drops in
-  // green, traffic and pedestrians as faint specks.
-  function drawMinimap(data) {
-    if (!map || !mctx || !data) return;
-    const W = map.width;
-    const H = map.height;
-    const b = data.bounds || { minX: -230, maxX: 230, minZ: -230, maxZ: 260 };
-    const sx = (x) => ((x - b.minX) / (b.maxX - b.minX)) * W;
-    const sy = (z) => ((z - b.minZ) / (b.maxZ - b.minZ)) * H;
-    mctx.clearRect(0, 0, W, H);
-
-    // Water and sand along the south edge.
-    mctx.fillStyle = '#0d1b2a';
-    mctx.fillRect(0, 0, W, H);
-    const beachY = sy(210);
-    mctx.fillStyle = '#8a7a52';
-    mctx.fillRect(0, beachY, W, H - beachY);
-    mctx.fillStyle = '#1d5f7a';
-    mctx.fillRect(0, sy(256), W, H - sy(256));
-
-    // City blocks, then the road grid over them.
-    mctx.fillStyle = '#1a2733';
-    mctx.fillRect(sx(-210), sy(-210), sx(210) - sx(-210), sy(210) - sy(-210));
-    mctx.strokeStyle = '#33465c';
-    mctx.lineWidth = 2;
-    for (const r of data.roads || []) {
-      mctx.beginPath();
-      mctx.moveTo(sx(r), sy(-210));
-      mctx.lineTo(sx(r), sy(210));
-      mctx.stroke();
-      mctx.beginPath();
-      mctx.moveTo(sx(-210), sy(r));
-      mctx.lineTo(sx(210), sy(r));
-      mctx.stroke();
+  // The minimap: a 210px square of the whole bay. North is up (-z).
+  function drawMinimap(ctx) {
+    const canvas = els.minimap;
+    if (!canvas || !ctx || !ctx.city || !ctx.player) return;
+    const g = canvas.getContext('2d');
+    const size = canvas.width;
+    const b = ctx.city.bounds;
+    const sx = size / (b.maxX - b.minX);
+    const sz = size / (b.maxZ - b.minZ);
+    const X = (x) => (x - b.minX) * sx;
+    const Z = (z) => (z - b.minZ) * sz;
+    g.clearRect(0, 0, size, size);
+    g.fillStyle = '#101c26';
+    g.fillRect(0, 0, size, size);
+    // Sea and sand along the south edge.
+    g.fillStyle = '#2e7f9e';
+    g.fillRect(0, Z(252), size, size - Z(252));
+    g.fillStyle = '#d9c28a';
+    g.fillRect(0, Z(252) - 3, size, 3);
+    // Roads.
+    g.strokeStyle = '#3a3f4a';
+    g.lineWidth = 4;
+    for (const r of ctx.city.roads) {
+      g.beginPath();
+      g.moveTo(X(r), 0);
+      g.lineTo(X(r), size);
+      g.stroke();
+      g.beginPath();
+      g.moveTo(0, Z(r));
+      g.lineTo(size, Z(r));
+      g.stroke();
     }
-
+    g.strokeStyle = '#5a6270';
+    g.lineWidth = 1;
+    for (const r of ctx.city.roads) {
+      g.beginPath();
+      g.moveTo(X(r), 0);
+      g.lineTo(X(r), size);
+      g.stroke();
+      g.beginPath();
+      g.moveTo(0, Z(r));
+      g.lineTo(size, Z(r));
+      g.stroke();
+    }
     const dot = (x, z, color, r) => {
-      mctx.fillStyle = color;
-      mctx.beginPath();
-      mctx.arc(sx(x), sy(z), r, 0, Math.PI * 2);
-      mctx.fill();
+      g.fillStyle = color;
+      g.beginPath();
+      g.arc(X(x), Z(z), r, 0, Math.PI * 2);
+      g.fill();
     };
-    for (const c of data.traffic || []) dot(c.x, c.z, '#cfd8e3', 1.6);
-    for (const p of data.peds || []) dot(p.x, p.z, '#7d8aa0', 1.2);
-    for (const e of data.enemies || []) dot(e.x, e.z, '#ff4444', 3);
-    for (const p of data.collect || []) dot(p.x, p.z, '#37d67a', 3.5);
-    for (const p of data.police || []) {
-      if (p.heli) {
-        mctx.strokeStyle = '#ffffff';
-        mctx.lineWidth = 1.5;
-        mctx.beginPath();
-        mctx.arc(sx(p.x), sy(p.z), 6, 0, Math.PI * 2);
-        mctx.stroke();
-        dot(p.x, p.z, '#ff5566', 3);
-      } else {
-        dot(p.x, p.z, '#4da3ff', 3);
+    // Stash and drop markers first, under everything else.
+    if (ctx.missions && typeof ctx.missions.markers === 'function') {
+      for (const m of ctx.missions.markers()) {
+        if (!m.collected) dot(m.x, m.z, '#ffd23e', 4);
       }
     }
-    if (data.beacon) {
-      const pulse = 4 + Math.sin(performance.now() / 240) * 1.5;
-      mctx.fillStyle = '#ffd23f';
-      mctx.beginPath();
-      mctx.moveTo(sx(data.beacon.x), sy(data.beacon.z) - pulse);
-      mctx.lineTo(sx(data.beacon.x) + pulse, sy(data.beacon.z));
-      mctx.lineTo(sx(data.beacon.x), sy(data.beacon.z) + pulse);
-      mctx.lineTo(sx(data.beacon.x) - pulse, sy(data.beacon.z));
-      mctx.closePath();
-      mctx.fill();
+    // Traffic, police and enemies.
+    if (ctx.traffic) {
+      for (const car of ctx.traffic.cars) {
+        if (car.occupied) continue;
+        dot(car.x, car.z, '#dfe6ee', 2);
+      }
     }
-    // Lena: a yellow arrow pointing where she faces.
-    const px = sx(data.x);
-    const py = sy(data.z);
-    const a = data.heading || 0;
-    mctx.fillStyle = '#ffd23f';
-    mctx.beginPath();
-    mctx.moveTo(px + Math.sin(a) * 7, py + Math.cos(a) * 7);
-    mctx.lineTo(px + Math.sin(a + 2.5) * 5, py + Math.cos(a + 2.5) * 5);
-    mctx.lineTo(px + Math.sin(a - 2.5) * 5, py + Math.cos(a - 2.5) * 5);
-    mctx.closePath();
-    mctx.fill();
+    if (ctx.police) {
+      for (const p of ctx.police.policePositions()) {
+        dot(p.x, p.z, p.heli ? '#37c8e8' : '#4a90ff', p.heli ? 5 : 3);
+      }
+    }
+    if (ctx.combat) {
+      for (const e of ctx.combat.enemyPositions()) dot(e.x, e.z, '#ff5a4e', 2.5);
+    }
+    // The job beacon: a pulsing yellow diamond.
+    if (ctx.city.beacon && ctx.city.beacon.visible) {
+      const bx = ctx.city.beacon.position.x;
+      const bz = ctx.city.beacon.position.z;
+      const pulse = 4 + Math.sin(Date.now() / 300) * 1.5;
+      g.fillStyle = '#ffd23e';
+      g.beginPath();
+      g.moveTo(X(bx), Z(bz) - pulse);
+      g.lineTo(X(bx) + pulse, Z(bz));
+      g.lineTo(X(bx), Z(bz) + pulse);
+      g.lineTo(X(bx) - pulse, Z(bz));
+      g.closePath();
+      g.fill();
+    }
+    // The player: a yellow arrow pointing where they face. Forward is
+    // (sin heading, cos heading) in world (x, z), which is (dx, dy) on the
+    // map, so the clockwise angle from straight up is atan2(sin, -cos).
+    const p = ctx.player;
+    g.save();
+    g.translate(X(p.x), Z(p.z));
+    g.rotate(Math.atan2(Math.sin(p.heading), -Math.cos(p.heading)));
+    g.fillStyle = '#ffd23e';
+    g.beginPath();
+    g.moveTo(0, -7);
+    g.lineTo(5, 5);
+    g.lineTo(-5, 5);
+    g.closePath();
+    g.fill();
+    g.restore();
   }
 
   return {
-    toast,
-    dialogue,
-    prompt,
-    updateStats,
-    updateWanted,
-    updateObjective,
-    updateSpeed,
-    showCrosshair,
-    showMenu,
-    showPaused,
-    announce,
-    drawMinimap,
+    toast, dialogue, prompt, updateStats, updateWanted, updateObjective,
+    updateSpeed, showCrosshair, showMenu, showPaused, announce, drawMinimap,
   };
 }
