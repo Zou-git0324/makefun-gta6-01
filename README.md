@@ -4,85 +4,96 @@
 
 # Solmar Bay — Neon Tide
 
-An open-world crime story in the browser. You are Lena "Vex" Marlowe, a
-courier back in Solmar Bay with a burned bridge and a brother who owes
-$40,000 to the Harlow crew. Ten jobs stand between her and a clean slate:
-drive, deliver, steal, fight — and stay ahead of the Solmar Bay Police
-Department.
+An open-world crime story that runs entirely in your browser. You are Lena
+"Vex" Marlowe, a courier in Solmar Bay — a neon city of palm-lined avenues,
+marina deals, and cops who never sleep. Her brother Dario owes $40,000 to the
+Harlow crew. Eleven jobs. One debt. No way back but forward.
 
-## Play
+Walk the streets, steal cars, outrun the police, and finish all eleven jobs
+to clear the debt. The whole game is plain HTML, CSS, and JavaScript on top
+of three.js — no downloads, no accounts, no network calls once it loads.
 
-Serve the `game` folder with any static server and open it:
+## Controls
+
+| Key | What it does |
+| --- | --- |
+| W A S D | Move on foot / drive |
+| Mouse drag | Look around |
+| E | Enter or steal a car (exit the car while driving) |
+| F / Click | Punch up close, shoot otherwise |
+| Shift | Sprint on foot |
+| Space | Handbrake while driving |
+| P | Pause and save |
+| M | Mute |
+
+## The eleven jobs
+
+| # | Job | Pay | What happens |
+| --- | --- | --- | --- |
+| 1 | First Fare | $1,000 | Get in the taxi and drive a fare across town. |
+| 2 | The Package | $1,500 | Pick up a package and deliver it. The cops take notice on arrival. |
+| 3 | The Getaway | $2,000 | Steal a sports car and drive it across town with two stars on you. |
+| 4 | Dockside Deal | $2,500 | Meet the contact at the docks, fight off the ambush, deliver. |
+| 5 | Night Shift | $3,000 | Hit five checkpoints around the city in 150 seconds. |
+| 6 | The Big Score | $3,500 | Steal a coupe and deliver it to the buyer. |
+| 7 | Marina Ambush | $4,000 | Walk into an ambush at the marina, fight through, make two drops. |
+| 8 | The Last Lap | $5,000 | Six checkpoints in 180 seconds, end to end across the city. |
+| 9 | Dead Drops | $7,000 | Collect four dead drops hidden around town, then deliver. |
+| 10 | Harlow's Farewell | $12,000 | Steal the getaway car and run six checkpoints in 240 seconds with three stars on you. |
+| 11 | Solmar Stash Run | $10,000 | Collect six stash packages hidden across the city in 300 seconds. |
+
+Finish job 10 and the $40,000 debt is paid. Job 11 is the victory lap: the
+stash run is open from the start, so you can take it whenever you like.
+
+Walk up to a glowing beacon in the world to start the next job, or press
+START STORY from the menu. Every completed job is saved, and CONTINUE picks
+up where you left off.
+
+## Systems
+
+- **Wanted level.** Stealing cars, running down pedestrians, and fighting
+  draw stars — up to five. Stars fade one at a time if you stay out of
+  trouble for twenty seconds. Sit still next to a patrol car while wanted
+  and you get busted: a $500 fine and a trip back to the marina.
+- **Police helicopter.** At four stars a police helicopter joins the chase.
+  It circles above you with a spinning rotor and a searchlight, and it
+  shows up as a blip on the minimap. Drop to two stars and it is gone.
+- **Vehicle types.** Sedans, sports cars, coupes, vans, and taxis all drive
+  differently — sports cars are the fastest, vans the slowest — and each
+  has its own body shape. The sports car carries a rear spoiler; the taxi
+  has a roof sign; police cars have a light bar.
+- **Vehicle damage.** Crashing into other cars damages yours. Past 50%
+  damage the car starts smoking, and its top speed falls — up to half at
+  full damage. The speedometer shows a damage bar and the model you are
+  driving. Buildings stop you but do not damage the car.
+- **Stash runs.** Stash packages glow in the world and show as blips on the
+  minimap. The HUD counts them down and runs the clock while a stash job
+  is active. Run out of time and the job fails cleanly — the game keeps
+  running and you can retry.
+- **Traffic and pedestrians.** Fourteen cars drive the road grid and
+  twenty-six pedestrians walk the sidewalks. Traffic and foot traffic keep
+  moving while you are in the menu.
+- **Day and night.** The clock runs a full day in 48 real minutes, and the
+  sun and sky follow it.
+
+## How to run it
+
+Serve the `game/` folder with any static server and open `index.html`:
 
 ```sh
 cd game
 python3 -m http.server 8123
 ```
 
-Then open http://127.0.0.1:8123/ — the game runs entirely offline, no
-account and no network needed. `main.ts` at the repo root is the
-competition entrypoint: it bundles and serves the game.
+Then open `http://localhost:8123/`. The game needs no build step and makes
+no network requests — every script, image, and font it loads is a file
+under `game/` or a `data:` URI.
 
-## Controls
+For a reproducible city layout, add a seed to the URL, for example
+`http://localhost:8123/?seed=7`. The same seed always generates the same
+streets, traffic, and pedestrians.
 
-| Key | Action |
-| --- | --- |
-| W A S D | Move / drive |
-| Mouse drag | Look around |
-| E | Enter / steal a car, exit a car, start a job at the marker |
-| F / Click | Punch up close, shoot at range (pistol, infinite ammo) |
-| Shift | Sprint |
-| Space | Handbrake while driving |
-| P | Pause and save |
-| M | Mute sound |
+## Notes
 
-## The ten jobs
-
-| # | Job | Pay |
-| --- | --- | --- |
-| 1 | First Fare — take the taxi, drop the passenger | $1,000 |
-| 2 | The Package — carry a sealed box across town | $1,500 |
-| 3 | The Getaway — steal a sports car, reach the northwest hideout | $2,000 |
-| 4 | Dockside Deal — settle things with three Harlow men at the pier | $2,500 |
-| 5 | Night Shift — 5 checkpoints against a 150-second clock | $3,000 |
-| 6 | The Big Score — move a coupe across town, no stops | $3,500 |
-| 7 | Marina Ambush — clear the ambush, then slip away | $4,000 |
-| 8 | The Last Lap — 6 checkpoints against a 180-second clock | $5,000 |
-| 9 | Dead Drops — collect 4 dead drops, bring them to the pier | $7,000 |
-| 10 | Harlow's Farewell — steal the getaway car, run 6 checkpoints in 240 seconds | $12,000 |
-
-## Systems
-
-- **Wanted stars.** Stealing cars, hitting pedestrians and shooting all
-  draw heat. Cruisers hunt you, ram you, and bust you if you stand still
-  next to one on foot. Stars fade one at a time when you lie low.
-- **Police helicopter.** It lifts off at four stars, circles overhead
-  with its spotlight on you, shows on the minimap, and only stands down
-  once the heat is back to two stars.
-- **Vehicle kinds.** Sedans, sports cars, coupes, vans and taxis each
-  drive differently — the sports car tops out at 43, the sedan at 34, the
-  van at 26 — and the sports car wears a wing you can spot from across
-  the map.
-- **Vehicle damage.** Crashes hurt. Past 50 damage the car starts
-  smoking, and the more hurt it is the slower it goes — up to half its
-  top speed at 100 damage. The speedometer shows the damage bar and the
-  car you are driving.
-- **Dead drops.** A new step type: pick up every package on the list
-  before the job moves on.
-
-## Verify
-
-The game is checked headless: Chrome drives the page through the
-`__solmar` API on `window` — starting jobs, teleporting Lena to each
-objective, setting the wanted level, crashing a car — and asserts the
-results: mission 5's timer is armed on its first step, mission 9 pays
-+$7,000, mission 10 pays +$12,000 with a 240-second clock, the helicopter
-appears at four stars and leaves at two, a full-speed crash costs 52
-damage and cuts the top speed from 43 to 32, and the four screenshots
-are re-shot at four stars. `main.ts` must also bundle cleanly.
-
-## Tech
-
-Three.js (vendored, no CDN), plain ES modules, no build step for the
-browser. Progress saves to local storage. The screenshots in
-`screenshots/` are staged through the game's own `__solmar` API.
+A fan-made tribute, not affiliated with Rockstar Games or Take-Two
+Interactive. Built for the make.fun gta6-01 bounty.
